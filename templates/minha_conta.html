@@ -6,6 +6,12 @@
 {% block corpo %}
 <div class="conteudo">
 <div class="coluna">
+  {% if primeira_vez %}
+  <div class="alerta verde" role="status">{{ icone('folha') }}
+    <div><h3>Bem-vinda ao Nida, {{ (pac.nome or '').split()[0] if pac.nome else '' }}!</h3>
+      <p>Falta só um passo: preencha os dados abaixo para o Nida montar a sua linha do tempo. Depois disso, todas as telas são liberadas.</p></div>
+  </div>
+  {% endif %}
   <section class="card">
     <form method="post" class="vertical">
       <div class="campos-2">

@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .passo-inicial { display: block; color: #dfe9e4; font-size: .88rem; line-height: 1.4; padding: 12px 14px; margin-bottom: 6px;
+                     background: rgba(255,255,255,.07); border-radius: 10px; }
+  </style>
 </head>
 <body>
 {% set itens = [
@@ -15,18 +19,26 @@
   ('exames', 'Exames', 'exame'), ('agenda', 'Agenda', 'agenda'), ('medicacao', 'Medicação', 'pilula'),
   ('sintomas', 'Sintomas', 'coracao'), ('apoio', 'Apoio emocional', 'folha'), ('clinicas', 'Clínicas', 'local'),
   ('relatorio', 'Relatório', 'relatorio')] %}
+{# Primeiro acesso: a conta ainda não tem os dados do tratamento, então o menu fica escondido
+   e só aparece o botão Sair, para a pessoa não clicar em telas que ainda não podem abrir. #}
+{% set primeiro_acesso = primeira_vez is defined and primeira_vez %}
 {% macro menu() %}
 <nav class="menu" aria-label="Menu principal">
+  {% if primeiro_acesso %}
+  <span class="passo-inicial">Primeiro acesso: complete seus dados para liberar o Nida.</span>
+  <a href="{{ url_for('sair') }}">{{ icone('seta') }} Sair</a>
+  {% else %}
   {% for ep, nome, ic in itens %}
   <a href="{{ url_for(ep) }}" class="{{ 'ativo' if request.endpoint == ep }}" {{ 'aria-current=page' if request.endpoint == ep }}>{{ icone(ic) }} {{ nome }}</a>
   {% endfor %}
   <a href="{{ url_for('minha_conta') }}" class="{{ 'ativo' if request.endpoint == 'minha_conta' }} conta-link">{{ icone('pessoa') }} Minha conta</a>
   <a href="{{ url_for('sair') }}">{{ icone('seta') }} Sair</a>
+  {% endif %}
 </nav>
 {% endmacro %}
 <div class="app">
   <aside class="lateral">
-    <a class="marca" href="{{ url_for('painel') }}">{{ icone('folha') }}<span><strong>Nida</strong><small>Gestão e orientação para pacientes em FIV</small></span></a>
+    <a class="marca" href="{{ url_for('minha_conta') if primeiro_acesso else url_for('painel') }}">{{ icone('folha') }}<span><strong>Nida</strong><small>Gestão e orientação para pacientes em FIV</small></span></a>
     {{ menu() }}
     <details class="menu-movel"><summary>{{ icone('menu') }} Menu</summary>{{ menu() }}</details>
     <div class="folha-deco" style="color:#9fc2b2">{{ ramo() }}</div>
@@ -40,7 +52,7 @@
       </div>
       <div class="folhas-topo" style="color:#7d9a8a">{{ ramo() }}</div>
       <div class="data-topo">{{ icone('agenda') }}<span>Hoje, {{ hoje_extenso }}<small>Agora: {{ agora }}</small></span></div>
-      <a class="avatar" href="{{ url_for('minha_conta') }}" title="Minha conta" aria-label="Minha conta">{{ icone('pessoa') }}</a>
+      {% if not primeiro_acesso %}<a class="avatar" href="{{ url_for('minha_conta') }}" title="Minha conta" aria-label="Minha conta">{{ icone('pessoa') }}</a>{% endif %}
     </header>
     {% block corpo %}{% endblock %}
     <p class="aviso-movel">Este site não substitui a orientação da sua equipe médica.</p>
