@@ -310,3 +310,10 @@ input, select, textarea { min-width: 0; }
 .entrada .apresentacao > *:not(.deco) { position: relative; z-index: 1; }
 .entrada .deco { z-index: 0; opacity: .45; }
 @media (max-width: 900px) { .entrada .deco { display: none; } }
+
+/* Clínicas: mapa (Dev 3) */
+#mapa-clinicas { height: 340px; border-radius: 10px; border: 1px solid var(--borda); z-index: 0; }
+.local-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
+#lista-clinicas strong { cursor: pointer; }
+#lista-clinicas .km { white-space: nowrap; }
+@media (max-width: 700px) { #mapa-clinicas { height: 260px; } }

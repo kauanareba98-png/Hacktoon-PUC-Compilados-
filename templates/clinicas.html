@@ -6,10 +6,19 @@
 {% block corpo %}
 <div class="conteudo">
 <div class="coluna">
-  <section class="placeholder">
-    <div class="card-titulo">{{ icone('mapa') }}<strong>Mapa de clínicas próximas</strong></div>
-    <p style="margin:0">Em desenvolvimento: mapa com Leaflet e OpenStreetMap, usando a localização da usuária para listar as clínicas mais próximas.</p>
+  <section class="card">
+    <div class="card-titulo">{{ icone('mapa') }}<h2>Clínicas de reprodução humana em Goiânia</h2></div>
+    <div id="mapa-clinicas" role="region" aria-label="Mapa de clínicas"></div>
+    <div class="local-linha">
+      <button type="button" id="btn-local" class="btn contorno peq">{{ icone('local') }} Usar minha localização</button>
+      <span id="status-local" class="mini" aria-live="polite"></span>
+    </div>
+    <ul id="lista-clinicas" class="lista-linhas" style="list-style:none; margin:0; padding:0"></ul>
+    <p class="mini" style="margin:8px 0 0">Confirme endereço e atendimento por telefone antes de ir.</p>
   </section>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='clinicas.js') }}"></script>
 
   {% if pac.caminho == 'SUS' and idade and idade >= 33 %}
   <div class="alerta ambar">{{ icone('relogio') }}<div><h3>Atenção ao limite de idade</h3>
