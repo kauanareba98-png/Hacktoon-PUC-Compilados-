@@ -8,11 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='logo/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo/apple-touch-icon.png') }}">
 </head>
 <body>
 <main class="entrada">
   <section class="apresentacao">
-    <div class="marca" style="padding:0">{{ icone('folha') }}<span><strong>Nida</strong><small>Gestão e orientação para pacientes em FIV</small></span></div>
+    <div class="marca-entrada"><img src="{{ url_for('static', filename='logo/completa-clara.png') }}" alt="Nida"><small>Gestão e orientação<br>para pacientes em FIV</small></div>
     <h1>Você não precisa atravessar a FIV sozinha.</h1>
     <p class="lead">O Nida acompanha você em cada etapa da fertilização in vitro: organiza o tratamento, explica o que esperar e avisa quando é hora de procurar ajuda.</p>
     <div class="pilares">

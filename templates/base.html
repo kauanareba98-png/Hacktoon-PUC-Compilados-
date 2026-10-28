@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='logo/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo/apple-touch-icon.png') }}">
   <style>
     .passo-inicial { display: block; color: #dfe9e4; font-size: .88rem; line-height: 1.4; padding: 12px 14px; margin-bottom: 6px;
                      background: rgba(255,255,255,.07); border-radius: 10px; }
@@ -38,7 +40,7 @@
 {% endmacro %}
 <div class="app">
   <aside class="lateral">
-    <a class="marca" href="{{ url_for('minha_conta') if primeiro_acesso else url_for('painel') }}">{{ icone('folha') }}<span><strong>Nida</strong><small>Gestão e orientação para pacientes em FIV</small></span></a>
+    <a class="marca" href="{{ url_for('minha_conta') if primeiro_acesso else url_for('painel') }}"><span class="logo"><img class="logo-simbolo" src="{{ url_for('static', filename='logo/simbolo-clara.png') }}" alt=""><img class="logo-nome" src="{{ url_for('static', filename='logo/palavra-clara.png') }}" alt="Nida"></span><small>Gestão e orientação para pacientes em FIV</small></a>
     {{ menu() }}
     <details class="menu-movel"><summary>{{ icone('menu') }} Menu</summary>{{ menu() }}</details>
     <div class="folha-deco" style="color:#9fc2b2">{{ ramo() }}</div>

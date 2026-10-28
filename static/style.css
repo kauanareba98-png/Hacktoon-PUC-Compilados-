@@ -455,3 +455,21 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* Garante que elementos com o atributo hidden fiquem escondidos (o label usa display:flex) */
 [hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------- logo do Nida */
+.marca { flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 0 8px 24px; }
+.marca .logo { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+.marca .logo-simbolo { width: 104px; height: auto; display: block; }
+.marca .logo-nome { width: 120px; height: auto; display: block; }
+.marca small { max-width: 190px; margin: 0; }
+@media (max-width: 900px) {
+  .lateral .marca { flex-direction: row; padding: 12px 16px; }
+  .marca .logo { flex-direction: row; gap: 8px; }
+  .marca .logo-simbolo { width: 58px; }
+  .marca .logo-nome { width: 62px; margin-top: 6px; }
+  .lateral .marca small { display: none; }
+}
+.marca-entrada { display: flex; align-items: center; gap: 22px; }
+.marca-entrada img { height: 128px; width: auto; display: block; }
+.marca-entrada small { font-size: .9rem; line-height: 1.45; color: #cfe0d6; padding-left: 22px; border-left: 1px solid rgba(255,255,255,.22); }
+@media (max-width: 900px) { .marca-entrada img { height: 96px; } .marca-entrada { gap: 16px; } .marca-entrada small { padding-left: 16px; } }
