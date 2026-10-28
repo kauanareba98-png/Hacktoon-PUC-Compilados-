@@ -7,21 +7,117 @@ Abrir:  http://127.0.0.1:5000
 Conta de demonstração: juliana@demo.com / nida2026
 Para voltar aos dados de exemplo, apague o arquivo nida.db e rode de novo.
 """
+import hmac
 import json
 import os
+import secrets
 import sqlite3
 from datetime import date, datetime, timedelta
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, g, session
+from flask import Flask, abort, jsonify, render_template, request, redirect, url_for, g, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import conteudo as C
 
 app = Flask(__name__)
-# Em produção a chave viria de uma variável de ambiente; aqui há um valor padrão para o protótipo.
-app.secret_key = os.environ.get("NIDA_SECRET", "nida-prototipo-troque-em-producao")
+if os.environ.get("NIDA_ENV") == "production" and not os.environ.get("NIDA_SECRET"):
+    raise RuntimeError("Defina NIDA_SECRET com uma chave forte antes de iniciar em produção.")
+app.secret_key = os.environ.get("NIDA_SECRET") or os.urandom(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("NIDA_ENV") == "production",
+    MAX_CONTENT_LENGTH=64 * 1024,
+)
 DB = "nida.db"
+COMMUNITY_DB = os.environ.get("NIDA_COMMUNITY_DB", "nida-community.db")
+app.config["COMMUNITY_MODERATOR_IDS"] = os.environ.get("NIDA_COMMUNITY_MODERATOR_IDS", "")
+COMMUNITY_CATEGORIES = {
+    "comecando": "Começando a FIV",
+    "incerteza": "Lidando com a incerteza",
+    "apoio": "Encontrando apoio",
+    "relacionamentos": "Relacionamentos e família",
+    "resultado": "Vivências após o resultado",
+}
+COMMUNITY_REACTIONS = {
+    "estou_aqui": "Estou aqui com você",
+    "obrigada": "Obrigada por compartilhar",
+    "acolhimento": "Você merece acolhimento",
+}
+COMMUNITY_REPORT_REASONS = {
+    "assédio": "Assédio ou desrespeito",
+    "dados_pessoais": "Dados pessoais expostos",
+    "orientacao_clinica": "Prescrição ou orientação clínica",
+    "risco": "Possível risco imediato",
+    "outro": "Outro motivo",
+}
+COMMUNITY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS perfis (
+    usuario_id INTEGER PRIMARY KEY,
+    pseudonimo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    criado_em TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS publicacoes (
+    id INTEGER PRIMARY KEY,
+    usuario_id INTEGER NOT NULL,
+    categoria TEXT NOT NULL,
+    texto TEXT NOT NULL,
+    estado TEXT NOT NULL CHECK (estado IN ('pendente', 'aprovada', 'removida')),
+    criada_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS comentarios (
+    id INTEGER PRIMARY KEY,
+    publicacao_id INTEGER NOT NULL REFERENCES publicacoes(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL,
+    texto TEXT NOT NULL,
+    estado TEXT NOT NULL CHECK (estado IN ('pendente', 'aprovado', 'removido')),
+    criado_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reacoes (
+    publicacao_id INTEGER NOT NULL REFERENCES publicacoes(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    criada_em TEXT NOT NULL,
+    PRIMARY KEY (publicacao_id, usuario_id, tipo)
+);
+CREATE TABLE IF NOT EXISTS denuncias (
+    id INTEGER PRIMARY KEY,
+    denunciante_id INTEGER NOT NULL,
+    tipo_alvo TEXT NOT NULL CHECK (tipo_alvo IN ('publicacao', 'comentario')),
+    publicacao_id INTEGER REFERENCES publicacoes(id) ON DELETE CASCADE,
+    comentario_id INTEGER REFERENCES comentarios(id) ON DELETE CASCADE,
+    motivo TEXT NOT NULL,
+    estado TEXT NOT NULL CHECK (estado IN ('aberta', 'revisada')),
+    criada_em TEXT NOT NULL,
+    CHECK ((tipo_alvo = 'publicacao' AND publicacao_id IS NOT NULL AND comentario_id IS NULL)
+        OR (tipo_alvo = 'comentario' AND comentario_id IS NOT NULL AND publicacao_id IS NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS denuncia_unica_publicacao
+    ON denuncias (denunciante_id, publicacao_id) WHERE tipo_alvo = 'publicacao';
+CREATE UNIQUE INDEX IF NOT EXISTS denuncia_unica_comentario
+    ON denuncias (denunciante_id, comentario_id) WHERE tipo_alvo = 'comentario';
+CREATE TABLE IF NOT EXISTS eventos (
+    id INTEGER PRIMARY KEY,
+    usuario_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    criado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS eventos_usuario_tipo_data
+    ON eventos (usuario_id, tipo, criado_em);
+CREATE TABLE IF NOT EXISTS auditoria_moderacao (
+    id INTEGER PRIMARY KEY,
+    moderadora_id INTEGER NOT NULL,
+    tipo_alvo TEXT NOT NULL,
+    alvo_id INTEGER NOT NULL,
+    acao TEXT NOT NULL,
+    criada_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS publicacoes_estado_data ON publicacoes (estado, criada_em);
+CREATE INDEX IF NOT EXISTS comentarios_publicacao_estado ON comentarios (publicacao_id, estado);
+CREATE INDEX IF NOT EXISTS denuncias_estado_data ON denuncias (estado, criada_em);
+"""
 
 DEMO_EMAIL, DEMO_SENHA = "juliana@demo.com", "nida2026"
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
@@ -34,7 +130,17 @@ def db():
     if "db" not in g:
         g.db = sqlite3.connect(DB)
         g.db.row_factory = sqlite3.Row
+        g.db.create_function("casefold", 1, lambda value: value.casefold() if isinstance(value, str) else "")
     return g.db
+
+
+def community_db():
+    if "community_db" not in g:
+        g.community_db = sqlite3.connect(COMMUNITY_DB, timeout=5)
+        g.community_db.row_factory = sqlite3.Row
+        g.community_db.execute("PRAGMA foreign_keys=ON")
+        g.community_db.executescript(COMMUNITY_SCHEMA)
+    return g.community_db
 
 
 @app.teardown_appcontext
@@ -42,6 +148,55 @@ def fechar_db(_):
     conn = g.pop("db", None)
     if conn:
         conn.close()
+    community_conn = g.pop("community_db", None)
+    if community_conn:
+        community_conn.close()
+
+
+def comunidade_pseudonimo_valido(value):
+    pseudonimo = value.strip()
+    return (3 <= len(pseudonimo) <= 24
+            and all(char.isalnum() or char in "_-" for char in pseudonimo))
+
+
+def comunidade_moderadoras():
+    configured = app.config["COMMUNITY_MODERATOR_IDS"]
+    if isinstance(configured, str):
+        try:
+            return {int(item.strip()) for item in configured.split(",") if item.strip()}
+        except ValueError as error:
+            raise RuntimeError("NIDA_COMMUNITY_MODERATOR_IDS deve conter IDs numéricos separados por vírgula.") from error
+    return {int(item) for item in configured}
+
+
+def exigir_moderadora():
+    if uid() not in comunidade_moderadoras():
+        abort(403)
+
+
+def comunidade_perfil(usuario_id):
+    return community_db().execute(
+        "SELECT pseudonimo FROM perfis WHERE usuario_id=?", (usuario_id,)
+    ).fetchone()
+
+
+def comunidade_registrar_evento(usuario_id, tipo, limite, janela):
+    conn = community_db()
+    conn.execute("BEGIN IMMEDIATE")
+    agora = datetime.now().isoformat(timespec="seconds")
+    inicio = (datetime.now() - janela).isoformat(timespec="seconds")
+    total = conn.execute(
+        "SELECT COUNT(*) FROM eventos WHERE usuario_id=? AND tipo=? AND criado_em>=?",
+        (usuario_id, tipo, inicio),
+    ).fetchone()[0]
+    if total >= limite:
+        abort(429, description="Você atingiu o limite temporário desta ação. Tente novamente mais tarde.")
+    conn.execute(
+        "INSERT INTO eventos (usuario_id, tipo, criado_em) VALUES (?,?,?)",
+        (usuario_id, tipo, agora),
+    )
+    conn.execute("DELETE FROM eventos WHERE criado_em<?", ((datetime.now() - timedelta(days=30)).isoformat(),))
+    return conn
 
 
 # Toda tabela de dados tem usuario_id: cada usuária só enxerga o que é dela.
@@ -169,6 +324,21 @@ ROTAS_PUBLICAS = {"entrar", "cadastrar", "static"}
 
 def uid():
     return session.get("uid")
+
+
+def csrf_token():
+    token = session.get("_csrf_token")
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+def validar_csrf():
+    esperado = session.get("_csrf_token", "")
+    recebido = request.form.get("csrf_token", "")
+    if not esperado or not recebido or not hmac.compare_digest(esperado, recebido):
+        abort(400, description="Token de segurança inválido. Recarregue a página e tente novamente.")
 
 
 @app.before_request
@@ -301,7 +471,7 @@ def comuns():
         nome = p["nome"] if p else None
     return {"hoje": hoje, "agora": datetime.now().strftime("%H:%M"),
             "hoje_extenso": f"{hoje.day} de {MESES[hoje.month - 1]} de {hoje.year}",
-            "agora_str": agora_str(), "nome_usuaria": nome}
+            "agora_str": agora_str(), "nome_usuaria": nome, "csrf_token": csrf_token}
 
 
 # ================================================================ entrada, cadastro e conta
@@ -539,25 +709,533 @@ def sintomas():
 @app.route("/apoio-emocional", methods=["GET", "POST"])
 def apoio():
     if request.method == "POST":
+        validar_csrf()
+        tipo = request.form.get("tipo", "humor")
+        nota = request.form.get("nota", "").strip()
+        if tipo == "diario":
+            data_registro = request.form.get("data", "")
+            try:
+                data_registro = date.fromisoformat(data_registro)
+            except ValueError:
+                data_registro = None
+            if data_registro is None or data_registro > date.today():
+                return render_template("apoio.html", **contexto_apoio(),
+                                       erro="Escolha uma data válida, até hoje.", diario_ativo=True,
+                                       diario_data=data_registro.isoformat() if data_registro else date.today().isoformat()), 400
+            if not nota:
+                return render_template("apoio.html", **contexto_apoio(),
+                                       erro="Escreva algo antes de salvar no diário.", diario_ativo=True,
+                                       diario_data=data_registro.isoformat()), 400
+            if len(nota) > 3000:
+                return render_template("apoio.html", **contexto_apoio(),
+                                       erro="O texto do diário deve ter até 3.000 caracteres.", diario_ativo=True,
+                                       diario_data=data_registro.isoformat()), 400
+            nivel = None
+        elif tipo == "humor":
+            try:
+                nivel = int(request.form.get("nivel", ""))
+            except ValueError:
+                nivel = 0
+            if nivel not in C.HUMORES:
+                return render_template("apoio.html", **contexto_apoio(),
+                                       erro="Escolha uma opção válida para registrar como está."), 400
+            if len(nota) > 500:
+                return render_template("apoio.html", **contexto_apoio(),
+                                       erro="A anotação deve ter até 500 caracteres."), 400
+        else:
+            abort(400, description="Tipo de registro inválido.")
         db().execute("INSERT INTO humor (usuario_id, data, nivel, nota) VALUES (?,?,?,?)",
-                     (uid(), request.form.get("data") or date.today().isoformat(), int(request.form["nivel"]),
-                      request.form.get("nota", "")))
+                     (uid(), data_registro.isoformat() if tipo == "diario" else date.today().isoformat(), nivel, nota))
         db().commit()
+        if tipo == "diario":
+            return redirect(url_for("apoio", diario="1", registro="salvo", data=data_registro.isoformat()))
         return redirect(url_for("apoio"))
+
+    diario_data = request.args.get("data", "")
+    try:
+        selecionada = date.fromisoformat(diario_data)
+        if selecionada > date.today():
+            raise ValueError
+    except ValueError:
+        selecionada = date.today()
+    return render_template("apoio.html", **contexto_apoio(), diario_ativo=request.args.get("diario") == "1",
+                           diario_data=selecionada.isoformat())
+
+
+@app.route("/apoio-emocional/comunidade")
+def comunidade():
+    categoria = request.args.get("categoria", "")
+    if categoria and categoria not in COMMUNITY_CATEGORIES:
+        abort(400, description="Categoria da comunidade inválida.")
+    conn = community_db()
+    usuario_id = uid()
+    perfil = comunidade_perfil(usuario_id)
+    posts = conn.execute(
+        """
+        SELECT p.id, p.categoria, p.texto, p.estado, p.criada_em,
+               (p.usuario_id=?) AS sou_autora,
+               COALESCE(perfil.pseudonimo, 'Participante') AS pseudonimo,
+               (SELECT COUNT(*) FROM comentarios c
+                WHERE c.publicacao_id=p.id AND c.estado='aprovado') AS total_comentarios
+        FROM publicacoes p
+        LEFT JOIN perfis perfil ON perfil.usuario_id=p.usuario_id
+        WHERE (p.estado='aprovada' OR (p.estado='pendente' AND p.usuario_id=?))
+          AND (?='' OR p.categoria=?)
+        ORDER BY p.criada_em DESC, p.id DESC LIMIT 50
+        """,
+        (usuario_id, usuario_id, categoria, categoria),
+    ).fetchall()
+    publicacao_ids = [post["id"] for post in posts]
+    comentarios_por_publicacao = {post_id: [] for post_id in publicacao_ids}
+    reacoes_por_publicacao = {post_id: {} for post_id in publicacao_ids}
+    if publicacao_ids:
+        placeholders = ",".join("?" for _ in publicacao_ids)
+        comments = conn.execute(
+            f"""
+            SELECT c.id, c.publicacao_id, c.texto, c.estado, c.criado_em,
+                   (c.usuario_id=?) AS sou_autora,
+                   COALESCE(perfil.pseudonimo, 'Participante') AS pseudonimo
+            FROM comentarios c
+            LEFT JOIN perfis perfil ON perfil.usuario_id=c.usuario_id
+            WHERE c.publicacao_id IN ({placeholders})
+              AND (c.estado='aprovado' OR (c.estado='pendente' AND c.usuario_id=?))
+            ORDER BY c.criado_em, c.id
+            """,
+            (usuario_id, *publicacao_ids, usuario_id),
+        ).fetchall()
+        for comment in comments:
+            comentarios_por_publicacao[comment["publicacao_id"]].append(dict(comment))
+        reactions = conn.execute(
+            f"""
+            SELECT publicacao_id, tipo, COUNT(*) AS total,
+                   MAX(CASE WHEN usuario_id=? THEN 1 ELSE 0 END) AS minha
+            FROM reacoes WHERE publicacao_id IN ({placeholders})
+            GROUP BY publicacao_id, tipo
+            """,
+            (usuario_id, *publicacao_ids),
+        ).fetchall()
+        for reaction in reactions:
+            reacoes_por_publicacao[reaction["publicacao_id"]][reaction["tipo"]] = dict(reaction)
+
+    feed = []
+    for post in posts:
+        item = dict(post)
+        item["comentarios"] = comentarios_por_publicacao[post["id"]]
+        item["reacoes"] = reacoes_por_publicacao[post["id"]]
+        feed.append(item)
+    moderators = comunidade_moderadoras()
+    notices = {
+        "pseudonimo_salvo": "Seu pseudônimo foi atualizado.",
+        "pseudonimo_invalido": "Use um pseudônimo de 3 a 24 letras, números, hífen ou sublinhado. Evite seu nome real.",
+        "pseudonimo_em_uso": "Esse pseudônimo já está sendo usado. Escolha outro.",
+        "perfil_necessario": "Escolha um pseudônimo antes de publicar ou comentar.",
+        "publicacao_publicada": "Seu relato já está visível para as participantes da comunidade.",
+        "comentario_publicado": "Seu comentário já está visível na conversa.",
+        "reacao_salva": "Sua reação foi atualizada.",
+        "denuncia_enviada": "A denúncia foi enviada em privado para revisão.",
+        "denuncia_repetida": "Você já enviou uma denúncia sobre este conteúdo.",
+        "conteudo_excluido": "O conteúdo foi removido.",
+        "categoria_invalida": "Escolha um assunto válido para a publicação.",
+        "texto_invalido": "Revise o texto: a publicação precisa ter até 3.000 caracteres.",
+        "comentario_invalido": "Revise o texto: o comentário precisa ter até 1.200 caracteres.",
+        "motivo_invalido": "Escolha um motivo válido para a denúncia.",
+    }
+    return render_template(
+        "comunidade.html",
+        pseudonimo=perfil["pseudonimo"] if perfil else "",
+        posts=feed,
+        categoria=categoria,
+        categorias=COMMUNITY_CATEGORIES,
+        reacoes=COMMUNITY_REACTIONS,
+        motivos_denuncia=COMMUNITY_REPORT_REASONS,
+        moderadora=usuario_id in moderators,
+        aviso=notices.get(request.args.get("aviso", "")),
+    )
+
+
+@app.route("/apoio-emocional/comunidade/perfil", methods=["POST"])
+def comunidade_atualizar_perfil():
+    validar_csrf()
+    pseudonimo = request.form.get("pseudonimo", "").strip()
+    if not comunidade_pseudonimo_valido(pseudonimo):
+        return redirect(url_for("comunidade", aviso="pseudonimo_invalido"))
+    conn = community_db()
+    agora = datetime.now().isoformat(timespec="seconds")
+    try:
+        perfil = comunidade_perfil(uid())
+        if perfil:
+            conn.execute(
+                "UPDATE perfis SET pseudonimo=?, atualizado_em=? WHERE usuario_id=?",
+                (pseudonimo, agora, uid()),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO perfis (usuario_id, pseudonimo, criado_em, atualizado_em) VALUES (?,?,?,?)",
+                (uid(), pseudonimo, agora, agora),
+            )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return redirect(url_for("comunidade", aviso="pseudonimo_em_uso"))
+    return redirect(url_for("comunidade", aviso="pseudonimo_salvo"))
+
+
+@app.route("/apoio-emocional/comunidade/publicacoes", methods=["POST"])
+def comunidade_publicar():
+    validar_csrf()
+    categoria = request.form.get("categoria", "")
+    texto = request.form.get("texto", "").strip()
+    if categoria not in COMMUNITY_CATEGORIES:
+        return redirect(url_for("comunidade", aviso="categoria_invalida"))
+    if not texto or len(texto) > 3000:
+        return redirect(url_for("comunidade", aviso="texto_invalido"))
+    if comunidade_perfil(uid()) is None:
+        return redirect(url_for("comunidade", aviso="perfil_necessario"))
+    conn = comunidade_registrar_evento(uid(), "publicacao", 5, timedelta(hours=1))
+    conn.execute(
+        "INSERT INTO publicacoes (usuario_id, categoria, texto, estado, criada_em) VALUES (?,?,?,'aprovada',?)",
+        (uid(), categoria, texto, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="publicacao_publicada"))
+
+
+@app.route("/apoio-emocional/comunidade/publicacoes/<int:id>/publicar", methods=["POST"])
+def comunidade_publicar_legacy(id):
+    validar_csrf()
+    conn = community_db()
+    cursor = conn.execute(
+        "UPDATE publicacoes SET estado='aprovada' WHERE id=? AND usuario_id=? AND estado='pendente'",
+        (id, uid()),
+    )
+    if not cursor.rowcount:
+        conn.rollback()
+        abort(404)
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="publicacao_publicada"))
+
+
+@app.route("/apoio-emocional/comunidade/publicacoes/<int:id>/comentarios", methods=["POST"])
+def comunidade_comentar(id):
+    validar_csrf()
+    texto = request.form.get("texto", "").strip()
+    if not texto or len(texto) > 1200:
+        return redirect(url_for("comunidade", aviso="comentario_invalido"))
+    conn = community_db()
+    if comunidade_perfil(uid()) is None:
+        return redirect(url_for("comunidade", aviso="perfil_necessario"))
+    if conn.execute("SELECT 1 FROM publicacoes WHERE id=? AND estado='aprovada'", (id,)).fetchone() is None:
+        abort(404)
+    conn = comunidade_registrar_evento(uid(), "comentario", 20, timedelta(hours=1))
+    conn.execute(
+        "INSERT INTO comentarios (publicacao_id, usuario_id, texto, estado, criado_em) "
+        "VALUES (?,?,?,'aprovado',?)",
+        (id, uid(), texto, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="comentario_publicado"))
+
+
+@app.route("/apoio-emocional/comunidade/comentarios/<int:id>/publicar", methods=["POST"])
+def comunidade_publicar_comentario_legacy(id):
+    validar_csrf()
+    conn = community_db()
+    cursor = conn.execute(
+        "UPDATE comentarios SET estado='aprovado' WHERE id=? AND usuario_id=? AND estado='pendente'",
+        (id, uid()),
+    )
+    if not cursor.rowcount:
+        conn.rollback()
+        abort(404)
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="comentario_publicado"))
+
+
+@app.route("/apoio-emocional/comunidade/publicacoes/<int:id>/reacoes", methods=["POST"])
+def comunidade_reagir(id):
+    validar_csrf()
+    tipo = request.form.get("tipo", "")
+    if tipo not in COMMUNITY_REACTIONS:
+        abort(400, description="Reação inválida.")
+    conn = community_db()
+    if conn.execute("SELECT 1 FROM publicacoes WHERE id=? AND estado='aprovada'", (id,)).fetchone() is None:
+        abort(404)
+    conn = comunidade_registrar_evento(uid(), "reacao", 60, timedelta(hours=1))
+    existing = conn.execute(
+        "SELECT 1 FROM reacoes WHERE publicacao_id=? AND usuario_id=? AND tipo=?",
+        (id, uid(), tipo),
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "DELETE FROM reacoes WHERE publicacao_id=? AND usuario_id=? AND tipo=?",
+            (id, uid(), tipo),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO reacoes (publicacao_id, usuario_id, tipo, criada_em) VALUES (?,?,?,?)",
+            (id, uid(), tipo, datetime.now().isoformat(timespec="seconds")),
+        )
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="reacao_salva"))
+
+
+@app.route("/apoio-emocional/comunidade/denuncias", methods=["POST"])
+def comunidade_denunciar():
+    validar_csrf()
+    tipo_alvo = request.form.get("tipo_alvo", "")
+    motivo = request.form.get("motivo", "")
+    if motivo not in COMMUNITY_REPORT_REASONS or tipo_alvo not in ("publicacao", "comentario"):
+        return redirect(url_for("comunidade", aviso="motivo_invalido"))
+    try:
+        alvo_id = int(request.form.get("alvo_id", ""))
+    except ValueError:
+        abort(400, description="Conteúdo inválido.")
+    conn = community_db()
+    if tipo_alvo == "publicacao":
+        alvo = conn.execute(
+            "SELECT id FROM publicacoes WHERE id=? AND estado='aprovada'", (alvo_id,)
+        ).fetchone()
+    else:
+        alvo = conn.execute(
+            "SELECT id FROM comentarios WHERE id=? AND estado='aprovado'", (alvo_id,)
+        ).fetchone()
+    if alvo is None:
+        abort(404)
+    conn = comunidade_registrar_evento(uid(), "denuncia", 5, timedelta(days=1))
+    if tipo_alvo == "publicacao":
+        duplicada = conn.execute(
+            "SELECT 1 FROM denuncias WHERE denunciante_id=? AND publicacao_id=?",
+            (uid(), alvo_id),
+        ).fetchone()
+    else:
+        duplicada = conn.execute(
+            "SELECT 1 FROM denuncias WHERE denunciante_id=? AND comentario_id=?",
+            (uid(), alvo_id),
+        ).fetchone()
+    if duplicada:
+        conn.commit()
+        return redirect(url_for("comunidade", aviso="denuncia_repetida"))
+    values = (uid(), tipo_alvo, alvo_id if tipo_alvo == "publicacao" else None,
+              alvo_id if tipo_alvo == "comentario" else None, motivo,
+              datetime.now().isoformat(timespec="seconds"))
+    try:
+        conn.execute(
+            "INSERT INTO denuncias (denunciante_id, tipo_alvo, publicacao_id, comentario_id, motivo, estado, criada_em) "
+            "VALUES (?,?,?,?,?,'aberta',?)",
+            values,
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return redirect(url_for("comunidade", aviso="denuncia_repetida"))
+    return redirect(url_for("comunidade", aviso="denuncia_enviada"))
+
+
+@app.route("/apoio-emocional/comunidade/publicacoes/<int:id>/excluir", methods=["POST"])
+def comunidade_excluir_publicacao(id):
+    validar_csrf()
+    conn = comunidade_registrar_evento(uid(), "exclusao", 10, timedelta(hours=1))
+    cursor = conn.execute("DELETE FROM publicacoes WHERE id=? AND usuario_id=?", (id, uid()))
+    if not cursor.rowcount:
+        conn.rollback()
+        abort(404)
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="conteudo_excluido"))
+
+
+@app.route("/apoio-emocional/comunidade/comentarios/<int:id>/excluir", methods=["POST"])
+def comunidade_excluir_comentario(id):
+    validar_csrf()
+    conn = comunidade_registrar_evento(uid(), "exclusao", 10, timedelta(hours=1))
+    cursor = conn.execute("DELETE FROM comentarios WHERE id=? AND usuario_id=?", (id, uid()))
+    if not cursor.rowcount:
+        conn.rollback()
+        abort(404)
+    conn.commit()
+    return redirect(url_for("comunidade", aviso="conteudo_excluido"))
+
+
+@app.route("/apoio-emocional/comunidade/moderacao")
+def comunidade_moderacao():
+    exigir_moderadora()
+    conn = community_db()
+    publicacoes = conn.execute(
+        """
+        SELECT p.id, p.categoria, p.texto, p.criada_em,
+               COALESCE(perfil.pseudonimo, 'Participante') AS pseudonimo
+        FROM publicacoes p LEFT JOIN perfis perfil ON perfil.usuario_id=p.usuario_id
+        WHERE p.estado='pendente' ORDER BY p.criada_em, p.id
+        """
+    ).fetchall()
+    comentarios = conn.execute(
+        """
+        SELECT c.id, c.publicacao_id, c.texto, c.criado_em,
+               COALESCE(perfil.pseudonimo, 'Participante') AS pseudonimo
+        FROM comentarios c LEFT JOIN perfis perfil ON perfil.usuario_id=c.usuario_id
+        WHERE c.estado='pendente' ORDER BY c.criado_em, c.id
+        """
+    ).fetchall()
+    denuncias = conn.execute(
+        """
+        SELECT d.id, d.tipo_alvo, d.motivo, d.criada_em,
+               COALESCE(p.texto, c.texto, '') AS texto,
+               COALESCE(alvo_perfil.pseudonimo, 'Participante') AS pseudonimo
+        FROM denuncias d
+        LEFT JOIN publicacoes p ON p.id=d.publicacao_id
+        LEFT JOIN comentarios c ON c.id=d.comentario_id
+        LEFT JOIN perfis alvo_perfil ON alvo_perfil.usuario_id=COALESCE(p.usuario_id, c.usuario_id)
+        WHERE d.estado='aberta' ORDER BY d.criada_em, d.id
+        """
+    ).fetchall()
+    return render_template(
+        "comunidade_moderacao.html",
+        publicacoes=publicacoes,
+        comentarios=comentarios,
+        denuncias=denuncias,
+        categorias=COMMUNITY_CATEGORIES,
+        motivos_denuncia=COMMUNITY_REPORT_REASONS,
+    )
+
+
+@app.route("/apoio-emocional/comunidade/moderacao/<tipo_alvo>/<int:id>", methods=["POST"])
+def comunidade_moderar_conteudo(tipo_alvo, id):
+    validar_csrf()
+    exigir_moderadora()
+    acao = request.form.get("acao", "")
+    if tipo_alvo == "publicacao":
+        table = "publicacoes"
+        accepted = "aprovada"
+        removed = "removida"
+    elif tipo_alvo == "comentario":
+        table = "comentarios"
+        accepted = "aprovado"
+        removed = "removido"
+    else:
+        abort(404)
+    if acao not in ("aprovar", "remover"):
+        abort(400, description="Ação de moderação inválida.")
+    conn = community_db()
+    if acao == "aprovar":
+        cursor = conn.execute(
+            f"UPDATE {table} SET estado=? WHERE id=? AND estado='pendente'", (accepted, id)
+        )
+    else:
+        cursor = conn.execute(
+            f"UPDATE {table} SET estado=?, texto='' WHERE id=? AND estado IN ('pendente', ?)",
+            (removed, id, accepted),
+        )
+    if not cursor.rowcount:
+        conn.rollback()
+        abort(404)
+    if tipo_alvo == "publicacao" and acao == "remover":
+        conn.execute(
+            "UPDATE comentarios SET estado='removido', texto='' WHERE publicacao_id=?", (id,)
+        )
+        conn.execute("DELETE FROM reacoes WHERE publicacao_id=?", (id,))
+    conn.execute(
+        "INSERT INTO auditoria_moderacao (moderadora_id, tipo_alvo, alvo_id, acao, criada_em) "
+        "VALUES (?,?,?,?,?)",
+        (uid(), tipo_alvo, id, acao, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return redirect(url_for("comunidade_moderacao"))
+
+
+@app.route("/apoio-emocional/comunidade/moderacao/denuncias/<int:id>", methods=["POST"])
+def comunidade_revisar_denuncia(id):
+    validar_csrf()
+    exigir_moderadora()
+    acao = request.form.get("acao", "")
+    if acao not in ("manter", "remover"):
+        abort(400, description="Ação de moderação inválida.")
+    conn = community_db()
+    denuncia = conn.execute(
+        "SELECT tipo_alvo, publicacao_id, comentario_id FROM denuncias WHERE id=? AND estado='aberta'",
+        (id,),
+    ).fetchone()
+    if denuncia is None:
+        abort(404)
+    alvo_id = denuncia["publicacao_id"] or denuncia["comentario_id"]
+    if acao == "remover":
+        if denuncia["tipo_alvo"] == "publicacao":
+            conn.execute("UPDATE publicacoes SET estado='removida', texto='' WHERE id=?", (alvo_id,))
+            conn.execute(
+                "UPDATE comentarios SET estado='removido', texto='' WHERE publicacao_id=?", (alvo_id,)
+            )
+            conn.execute("DELETE FROM reacoes WHERE publicacao_id=?", (alvo_id,))
+        else:
+            conn.execute("UPDATE comentarios SET estado='removido', texto='' WHERE id=?", (alvo_id,))
+    conn.execute("UPDATE denuncias SET estado='revisada' WHERE id=?", (id,))
+    conn.execute(
+        "INSERT INTO auditoria_moderacao (moderadora_id, tipo_alvo, alvo_id, acao, criada_em) "
+        "VALUES (?,?,?,?,?)",
+        (uid(), denuncia["tipo_alvo"], alvo_id, f"denuncia_{acao}", datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return redirect(url_for("comunidade_moderacao"))
+
+
+@app.route("/apoio-emocional/diario")
+def buscar_registros_diario():
+    mes = request.args.get("mes", "")
+    try:
+        primeiro_dia = date.fromisoformat(f"{mes}-01")
+    except ValueError:
+        abort(400, description="Mês inválido.")
+    if primeiro_dia.strftime("%Y-%m") != mes:
+        abort(400, description="Mês inválido.")
+    if primeiro_dia > date.today().replace(day=1):
+        abort(400, description="Não há registros em meses futuros.")
+    if primeiro_dia.month == 12:
+        proximo_mes = date(primeiro_dia.year + 1, 1, 1)
+    else:
+        proximo_mes = date(primeiro_dia.year, primeiro_dia.month + 1, 1)
+    query = request.args.get("q", "").strip()[:80]
+    if query:
+        registros = db().execute(
+            "SELECT id, data, nivel, nota FROM humor WHERE usuario_id=? "
+            "AND instr(casefold(COALESCE(nota,'')), casefold(?)) > 0 ORDER BY data DESC, id DESC LIMIT 100",
+            (uid(), query),
+        ).fetchall()
+    else:
+        registros = db().execute(
+            "SELECT id, data, nivel, nota FROM humor WHERE usuario_id=? AND data>=? AND data<? "
+            "ORDER BY data DESC, id DESC",
+            (uid(), primeiro_dia.isoformat(), proximo_mes.isoformat()),
+        ).fetchall()
+    return jsonify({
+        "mes": mes,
+        "registros": [
+            {"id": row["id"], "data": row["data"], "nivel": row["nivel"], "nota": row["nota"] or ""}
+            for row in registros
+        ],
+        "busca": bool(query),
+        "limite": 100 if query else None,
+    })
+
+
+def contexto_apoio():
     _, etapas = linha_do_tempo()
     atual = etapa_atual(etapas)
     texto, fts = C.EMOCIONAL.get(atual["nome"], ("", [])) if atual else ("", [])
-    registros = db().execute("SELECT * FROM humor WHERE usuario_id=? ORDER BY data DESC, id DESC LIMIT 14",
-                             (uid(),)).fetchall()
-    # Sinal de cuidado: os três últimos registros com humor difícil ou muito difícil.
-    alerta_humor = len(registros) >= 3 and all(r["nivel"] <= 2 for r in registros[:3])
-    # Remédios ativos hoje, para a paciente relacionar o humor com a medicação.
-    hoje = date.today().isoformat()
-    meds_hoje = db().execute("SELECT nome, classe FROM medicamentos WHERE usuario_id=? AND data_inicio<=? AND data_fim>=?",
-                             (uid(), hoje, hoje)).fetchall()
-    return render_template("apoio.html", atual=atual, texto=texto, fontes_texto=C.fontes(fts),
-                           parceria=C.EMOCIONAL_PARCERIA[0], fontes_parceria=C.fontes(C.EMOCIONAL_PARCERIA[1]),
-                           registros=registros, humores=C.HUMORES, alerta_humor=alerta_humor, meds_hoje=meds_hoje)
+    # Text-only diary entries have no rating and must not affect this optional check-in.
+    humores_recentes = db().execute("SELECT nivel FROM humor WHERE usuario_id=? AND nivel IS NOT NULL "
+                                    "ORDER BY data DESC, id DESC LIMIT 3", (uid(),)).fetchall()
+    alerta_humor = len(humores_recentes) == 3 and all(r["nivel"] <= 2 for r in humores_recentes)
+    return {"atual": atual, "texto": texto, "fontes_texto": C.fontes(fts),
+            "parceria": C.EMOCIONAL_PARCERIA[0], "fontes_parceria": C.fontes(C.EMOCIONAL_PARCERIA[1]),
+            "humores": C.HUMORES, "alerta_humor": alerta_humor}
+
+
+@app.route("/apoio-emocional/registros/<int:id>/excluir", methods=["POST"])
+def excluir_registro_apoio(id):
+    validar_csrf()
+    registro = db().execute("SELECT data FROM humor WHERE id=? AND usuario_id=?", (id, uid())).fetchone()
+    if registro is None:
+        abort(404)
+    db().execute("DELETE FROM humor WHERE id=? AND usuario_id=?", (id, uid()))
+    db().commit()
+    return redirect(url_for("apoio", diario="1", data=registro["data"]))
 
 
 @app.route("/clinicas")

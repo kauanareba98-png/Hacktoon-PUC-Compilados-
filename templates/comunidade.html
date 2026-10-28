@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone with context %}
+{% block aba %}Comunidade de apoio{% endblock %}
+{% block titulo %}Comunidade de apoio{% endblock %}
+{% block subtitulo %}Trocas entre pessoas que vivem experiências de fertilidade, no seu tempo.{% endblock %}
+{% block corpo %}
+<main class="conteudo conteudo-cheio apoio-page comunidade-page">
+  <a class="btn contorno peq voltar-apoio" href="{{ url_for('apoio') }}">← Voltar ao apoio emocional</a>
+  <section class="card comunidade-card">
+    <div class="card-titulo">{{ icone('pessoa') }}<h2>Um espaço de troca, com cuidado</h2></div>
+    <p>Compartilhe experiências, não prescrições. Relatos de outras pessoas não substituem a orientação da equipe que acompanha seu tratamento.</p>
+    <ul class="regras-comunidade">
+      <li>Não recomende medicamentos, doses ou mudanças no tratamento, nem prometa resultados.</li>
+      <li>Respeite diferentes caminhos e decisões; não publique assédio, julgamentos ou informações pessoais suas ou de outras pessoas.</li>
+      <li>Seu pseudônimo não é anonimato absoluto: a conta fica vinculada internamente para proteger o espaço. O mural não mostra seu nome ou e-mail.</li>
+      <li>Publicações e comentários ficam visíveis imediatamente para as participantes autenticadas. Se encontrar algo que viole as regras, denuncie; denúncias são privadas, mas podem não ser vistas imediatamente.</li>
+    </ul>
+    <p class="nota">Este mural não é canal de emergência nem é monitorado em tempo real. Em risco imediato, procure alguém de confiança, uma UPA ou pronto-socorro; em emergência médica, ligue 192. O CVV atende pelo 188 para escuta emocional, mas não substitui atendimento de emergência.</p>
+  </section>
+
+  {% if aviso %}<p class="mensagem-comunidade" role="status">{{ aviso }}</p>{% endif %}
+
+  <section class="card">
+    <h2>Seu pseudônimo</h2>
+    <p>Escolha um nome que não revele sua identidade. Evite seu nome real, telefone, clínica ou outros dados pessoais.</p>
+    <form method="post" action="{{ url_for('comunidade_atualizar_perfil') }}" class="form-comunidade">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="pseudonimo-comunidade">Pseudônimo
+        <input id="pseudonimo-comunidade" name="pseudonimo" value="{{ pseudonimo }}" minlength="3" maxlength="24" required>
+      </label>
+      <button class="btn contorno peq" type="submit">{{ "Atualizar pseudônimo" if pseudonimo else "Salvar pseudônimo" }}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Compartilhar uma experiência</h2>
+    <form method="post" action="{{ url_for('comunidade_publicar') }}" class="form-comunidade">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="categoria-publicacao">Assunto
+        <select id="categoria-publicacao" name="categoria" required>
+          {% for chave, nome in categorias.items() %}
+          <option value="{{ chave }}">{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label for="texto-publicacao">Seu relato
+        <textarea id="texto-publicacao" name="texto" rows="5" maxlength="3000" required placeholder="Compartilhe apenas o que se sentir confortável em dividir."></textarea>
+      </label>
+      <p class="nota">Até 3.000 caracteres. Seu relato será publicado imediatamente para as participantes da comunidade.</p>
+      <button class="btn" type="submit" {% if not pseudonimo %}disabled{% endif %}>Publicar relato</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="cabecalho-comunidade">
+      <h2>Relatos da comunidade</h2>
+      {% if moderadora %}<a class="btn contorno peq" href="{{ url_for('comunidade_moderacao') }}">Fila de moderação</a>{% endif %}
+    </div>
+    <form method="get" action="{{ url_for('comunidade') }}" class="filtro-comunidade">
+      <label for="filtro-categoria">Filtrar por assunto
+        <select id="filtro-categoria" name="categoria">
+          <option value="">Todos os assuntos</option>
+          {% for chave, nome in categorias.items() %}
+          <option value="{{ chave }}" {% if categoria == chave %}selected{% endif %}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn contorno peq" type="submit">Filtrar</button>
+    </form>
+    {% if not posts %}
+    <p class="vazio">Ainda não há relatos publicados neste assunto. Você pode voltar quando quiser.</p>
+    {% endif %}
+    <div class="lista-comunidade">
+      {% for post in posts %}
+      <article class="publicacao-comunidade">
+        <header class="publicacao-cabecalho">
+          <div>
+            <span class="selo verde">{{ categorias[post.categoria] }}</span>
+            <p class="mini">{{ post.pseudonimo }} · {{ post.criada_em[:16].replace("T", " ") }}</p>
+          </div>
+          {% if post.estado == "pendente" %}<span class="selo ambar">Relato antigo ainda privado</span>{% endif %}
+        </header>
+        <p class="texto-comunidade">{{ post.texto }}</p>
+        {% if post.estado == "pendente" and post.sou_autora %}
+        <form method="post" action="{{ url_for('comunidade_publicar_legacy', id=post.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn contorno peq" type="submit">Publicar meu relato agora</button>
+        </form>
+        {% endif %}
+        {% if post.estado == "aprovada" %}
+        <div class="reacoes-comunidade" aria-label="Reações de acolhimento">
+          {% for chave, rotulo in reacoes.items() %}
+          {% set reacao = post.reacoes.get(chave, {}) %}
+          <form method="post" action="{{ url_for('comunidade_reagir', id=post.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="tipo" value="{{ chave }}">
+            <button class="btn contorno peq" type="submit" aria-pressed="{{ 'true' if reacao.get('minha') else 'false' }}">{{ rotulo }}{% if reacao.get('total') %} · {{ reacao.total }}{% endif %}</button>
+          </form>
+          {% endfor %}
+        </div>
+        <details class="denuncia-comunidade">
+          <summary>Denunciar publicação</summary>
+          <form method="post" action="{{ url_for('comunidade_denunciar') }}" class="form-comunidade">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="tipo_alvo" value="publicacao">
+            <input type="hidden" name="alvo_id" value="{{ post.id }}">
+            <label>Motivo
+              <select name="motivo" required>
+                {% for chave, motivo in motivos_denuncia.items() %}<option value="{{ chave }}">{{ motivo }}</option>{% endfor %}
+              </select>
+            </label>
+            <button class="btn contorno peq" type="submit">Enviar denúncia privada</button>
+          </form>
+        </details>
+        {% endif %}
+        {% if post.sou_autora %}
+        <form method="post" action="{{ url_for('comunidade_excluir_publicacao', id=post.id) }}" onsubmit="return confirm('Excluir seu relato e os comentários associados? Esta ação não pode ser desfeita.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="link-btn" type="submit">Excluir meu relato</button>
+        </form>
+        {% endif %}
+
+        {% if post.estado == "aprovada" %}
+        <section class="comentarios-comunidade" aria-label="Comentários">
+          <h3>Comentários ({{ post.total_comentarios }})</h3>
+          {% for comentario in post.comentarios %}
+          <article class="comentario-comunidade">
+            <p class="mini">{{ comentario.pseudonimo }} · {{ comentario.criado_em[:16].replace("T", " ") }}{% if comentario.estado == "pendente" %} · Comentário antigo ainda privado{% endif %}</p>
+            <p class="texto-comunidade">{{ comentario.texto }}</p>
+            {% if comentario.estado == "pendente" and comentario.sou_autora %}
+            <form method="post" action="{{ url_for('comunidade_publicar_comentario_legacy', id=comentario.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn contorno peq" type="submit">Publicar meu comentário agora</button>
+            </form>
+            {% endif %}
+            {% if comentario.estado == "aprovado" %}
+            <details class="denuncia-comunidade">
+              <summary>Denunciar comentário</summary>
+              <form method="post" action="{{ url_for('comunidade_denunciar') }}" class="form-comunidade">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="tipo_alvo" value="comentario">
+                <input type="hidden" name="alvo_id" value="{{ comentario.id }}">
+                <label>Motivo
+                  <select name="motivo" required>
+                    {% for chave, motivo in motivos_denuncia.items() %}<option value="{{ chave }}">{{ motivo }}</option>{% endfor %}
+                  </select>
+                </label>
+                <button class="btn contorno peq" type="submit">Enviar denúncia privada</button>
+              </form>
+            </details>
+            {% endif %}
+            {% if comentario.sou_autora %}
+            <form method="post" action="{{ url_for('comunidade_excluir_comentario', id=comentario.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="link-btn" type="submit">Excluir meu comentário</button>
+            </form>
+            {% endif %}
+          </article>
+          {% endfor %}
+          <form method="post" action="{{ url_for('comunidade_comentar', id=post.id) }}" class="form-comunidade">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="comentario-{{ post.id }}">Escrever comentário
+              <textarea id="comentario-{{ post.id }}" name="texto" rows="3" maxlength="1200" required></textarea>
+            </label>
+            <p class="nota">Seu comentário ficará visível assim que você publicar.</p>
+            <button class="btn contorno peq" type="submit" {% if not pseudonimo %}disabled{% endif %}>Publicar comentário</button>
+          </form>
+        </section>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}
