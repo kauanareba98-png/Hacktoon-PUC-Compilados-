@@ -452,3 +452,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .publicacao-comunidade, .item-moderacao { padding: 12px; }
   .reacoes-comunidade .btn { width: 100%; justify-content: flex-start; }
 }
+
+/* Garante que elementos com o atributo hidden fiquem escondidos (o label usa display:flex) */
+[hidden] { display: none !important; }
