@@ -1,25 +1,35 @@
 // Mapa de clínicas (Leaflet + OpenStreetMap) e lista ordenada pela distância da usuária.
 
-// ATENÇÃO: coordenadas aproximadas. Confirmar endereço, telefone e posição no mapa antes do pitch.
-// Para adicionar uma clínica, copie um bloco e ajuste. tipo: "SUS" ou "Particular".
+// Clínicas de reprodução humana em Goiânia, conferidas em 28/10/2026.
+// Endereço e telefone: site oficial da clínica (Humana: guia telefônico). Coordenadas: OpenStreetMap.
+// Para adicionar uma clínica, copie um bloco e ajuste. tipo: "SUS" ou "Particular". telefone é opcional.
 const CLINICAS = [
   {
     nome: "Hospital das Clínicas da UFG — Laboratório de Reprodução Humana",
     endereco: "Primeira Avenida, s/n, Setor Leste Universitário",
     tipo: "SUS",
-    lat: -16.6797, lng: -49.2466,
+    lat: -16.67349, lng: -49.24517,
   },
   {
     nome: "Humana Medicina Reprodutiva",
     endereco: "Rua 1129, 751, Setor Marista",
     tipo: "Particular",
-    lat: -16.7060, lng: -49.2600,
+    telefone: "(62) 3281-1101",
+    lat: -16.70402, lng: -49.26271,
   },
   {
-    nome: "Clínica Essência",
-    endereco: "Avenida T-1, 1315, Setor Bueno",
+    nome: "Clínica In Vitro",
+    endereco: "Alameda Ricardo Paranhos, 731, Setor Marista",
     tipo: "Particular",
-    lat: -16.7040, lng: -49.2700,
+    telefone: "(62) 3095-5334",
+    lat: -16.70347, lng: -49.25950, // centro do CEP 74180-050
+  },
+  {
+    nome: "Fértile Reprodução Humana",
+    endereco: "Alameda Coronel Joaquim de Bastos, 243, Setor Marista",
+    tipo: "Particular",
+    telefone: "(62) 99911-5317",
+    lat: -16.70834, lng: -49.26226, // ponto da rua, conferir o número no mapa
   },
 ];
 
@@ -47,7 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const marcadores = CLINICAS.map((c) =>
     L.marker([c.lat, c.lng]).addTo(mapa)
-      .bindPopup("<strong>" + c.nome + "</strong><br>" + c.endereco + "<br><em>" + c.tipo + "</em>")
+      .bindPopup("<strong>" + c.nome + "</strong><br>" + c.endereco +
+        (c.telefone ? "<br>" + c.telefone : "") + "<br><em>" + c.tipo + "</em>")
   );
 
   const lista = document.getElementById("lista-clinicas");
@@ -65,12 +76,18 @@ document.addEventListener("DOMContentLoaded", () => {
         '<span class="cresce"><strong></strong><span class="mini endereco"></span></span>' +
         '<span class="selo ' + (c.tipo === "SUS" ? "verde" : "") + '"></span>' +
         '<span class="mini km"></span>' +
-        '<a class="mini" target="_blank" rel="noopener">Rota</a>';
+        (c.telefone ? '<a class="mini ligar">Ligar</a>' : "") +
+        '<a class="mini rota" target="_blank" rel="noopener">Rota</a>';
       li.querySelector("strong").textContent = c.nome;
       li.querySelector(".endereco").textContent = c.endereco;
       li.querySelector(".selo").textContent = c.tipo;
       li.querySelector(".km").textContent = km === null ? "" : km.toFixed(1).replace(".", ",") + " km";
-      li.querySelector("a").href = linkRota(c);
+      li.querySelector(".rota").href = linkRota(c);
+      if (c.telefone) {
+        const ligar = li.querySelector(".ligar");
+        ligar.href = "tel:+55" + c.telefone.replace(/\D/g, "");
+        ligar.title = c.telefone;
+      }
       li.querySelector("strong").addEventListener("click", () => {
         mapa.setView([c.lat, c.lng], 15);
         marcadores[i].openPopup();
