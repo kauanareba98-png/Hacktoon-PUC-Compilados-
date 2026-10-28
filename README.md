@@ -2,7 +2,7 @@
 
 Plataforma que acompanha a mulher em cada etapa da fertilização in vitro: organiza o tratamento, orienta com informação de fontes médicas confiáveis, oferece apoio emocional e avisa quando é hora de procurar ajuda.
 
-Projeto da equipe [nome da equipe] para o **IV CodeCraft — Ciência e Tecnologia para a Saúde Delas** (PUC Goiás, 2026).
+Projeto da equipe Compilados ++ para o **IV CodeCraft — Ciência e Tecnologia para a Saúde Delas** (PUC Goiás, 2026).
 
 > O Nida orienta, não diagnostica e nunca sugere dose. Não substitui a equipe médica.
 
