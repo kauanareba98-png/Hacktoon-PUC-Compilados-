@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo with context %}
+{% block aba %}Medicação{% endblock %}
+{% block titulo %}Medicação{% endblock %}
+{% block subtitulo %}Registre as doses e entenda para que serve cada medicamento. A dose vem sempre da sua receita.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  {% if tem_gatilho %}
+  <div class="alerta ambar">{{ icone('info') }}<div><h3>Não faça teste de farmácia antes da data</h3>
+    <p>O hormônio do gatilho pode dar falso positivo por cerca de 10 dias. Espere o exame indicado pela clínica.</p>
+    <div class="fontes"><a href="{{ F.asrm_med[1] }}" target="_blank" rel="noopener">{{ F.asrm_med[0] }}</a></div></div></div>
+  {% endif %}
+
+  <div class="grade-4">
+    <div class="card stat"><span class="bolinha">{{ icone('pilula') }}</span><span><span class="rotulo">Doses de hoje</span><span class="valor">{{ doses.hoje|length }}</span></span></div>
+    <div class="card stat"><span class="bolinha">{{ icone('check') }}</span><span><span class="rotulo">Tomadas hoje</span><span class="valor">{{ doses.hoje_tomadas }}</span></span></div>
+    <div class="card stat"><span class="bolinha vermelho">{{ icone('relogio') }}</span><span><span class="rotulo">Atrasadas</span><span class="valor {{ 'vermelho' if doses.atrasadas }}">{{ doses.atrasadas|length }}</span></span></div>
+    <div class="card stat"><span class="bolinha cinza">{{ icone('grafico') }}</span><span><span class="rotulo">Adesão</span><span class="valor">{{ doses.adesao }}%</span><span class="mini">{{ doses.tomadas }} de {{ doses.total }} doses</span></span></div>
+  </div>
+
+  <section class="card">
+    <nav class="abas" aria-label="Visualização">
+      <a href="{{ url_for('medicacao', aba='hoje') }}" class="{{ 'ativo' if aba == 'hoje' }}">Hoje</a>
+      <a href="{{ url_for('medicacao', aba='todas') }}" class="{{ 'ativo' if aba == 'todas' }}">Todas as medicações</a>
+      <a href="{{ url_for('medicacao', aba='atrasadas') }}" class="{{ 'ativo' if aba == 'atrasadas' }}">Doses atrasadas{% if doses.atrasadas %}<span class="contador">{{ doses.atrasadas|length }}</span>{% endif %}</a>
+    </nav>
+
+    {% if aba == 'hoje' %}
+    <div class="lista-linhas">
+      {% for d in doses.hoje %}
+      {% set atrasada = not d.tomada and d.data_hora_prevista < agora_str %}
+      <div>
+        <span style="font-weight:600; min-width:52px">{{ d.data_hora_prevista[11:] }}</span>
+        <span style="color:{{ 'var(--verde)' if d.tomada else ('var(--vermelho)' if atrasada else 'var(--suave)') }}">{{ icone('check-circulo' if d.tomada else ('alerta' if atrasada else 'circulo')) }}</span>
+        <span class="cresce"><strong>{{ d.nome }}</strong><span class="mini">{{ d.dose_texto }} · {{ d.via }}{{ ' · ' ~ d.classe if d.classe }}</span></span>
+        {% if d.tomada %}<span class="selo verde">Tomada {{ d.data_hora_real[11:] if d.data_hora_real }}</span>
+        {% else %}
+          {% if atrasada %}<span class="selo vermelho">Atrasada</span>{% else %}<span class="selo">Pendente</span>{% endif %}
+          <form method="post" action="{{ url_for('tomar_dose', id=d.id) }}"><button class="btn peq">Marcar como tomada</button></form>
+        {% endif %}
+      </div>
+      {% else %}<p class="vazio">Nenhuma dose prevista para hoje.</p>{% endfor %}
+    </div>
+
+    {% elif aba == 'atrasadas' %}
+    <div class="lista-linhas">
+      {% for d in doses.atrasadas %}
+      <div>
+        <span style="color:var(--vermelho)">{{ icone('alerta') }}</span>
+        <span class="cresce"><strong>{{ d.nome }}</strong><span class="mini">Prevista para {{ d.data_hora_prevista|br }} · {{ d.dose_texto }}</span></span>
+        <form method="post" action="{{ url_for('tomar_dose', id=d.id) }}"><button class="btn peq">Já tomei</button></form>
+      </div>
+      {% else %}<p class="vazio">Nenhuma dose atrasada. Tudo em dia.</p>{% endfor %}
+    </div>
+    {% if doses.atrasadas %}<p class="mini" style="margin:12px 0 0">Esqueceu uma dose? Não dobre a próxima por conta própria: fale com a sua clínica.</p>{% endif %}
+
+    {% else %}
+    <div class="rolavel"><table>
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Dose</th><th>Via</th><th>Horário</th><th>Período</th><th><span class="sr">Ações</span></th></tr></thead>
+      <tbody>
+      {% for m in meds %}
+      <tr><td><strong style="font-weight:500">{{ m.nome }}</strong></td><td class="mini">{{ m.classe or '—' }}</td><td>{{ m.dose_texto }}</td><td>{{ m.via }}</td><td>{{ m.horario }}</td>
+          <td class="mini">{{ m.data_inicio|curta }} – {{ m.data_fim|curta }}</td>
+          <td><form method="post" action="{{ url_for('excluir_medicamento', id=m.id) }}"><button class="link-btn" aria-label="Excluir {{ m.nome }}" title="Excluir">{{ icone('lixo') }}</button></form></td></tr>
+      {% else %}<tr><td colspan="7" class="vazio">Nenhuma medicação cadastrada.</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {% endif %}
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('mais') }}<h2>Nova medicação</h2></div>
+    <form method="post" class="vertical">
+      <label>Tipo de medicamento
+        <select name="classe" id="classe" required>
+          <option value="" disabled selected>Selecione</option>
+          {% for c in classes %}<option>{{ c }}</option>{% endfor %}
+        </select>
+      </label>
+      <label id="campo-outra-classe" hidden>Qual tipo? <input name="classe_outro" autocomplete="off" placeholder="Ex.: anti-inflamatório"></label>
+      <div id="info-classe" class="card suave" style="padding:12px 14px; display:none">
+        <div class="mini" style="font-weight:600; color:var(--verde-escuro)">Para que serve</div>
+        <p id="info-serve" style="margin:2px 0 6px; font-size:.88rem"></p>
+        <div class="mini" id="info-efeitos"></div>
+        <div class="fontes" id="info-fonte"></div>
+      </div>
+      <label>Nome do medicamento <input name="nome" autocomplete="off" placeholder="Como está na receita" required></label>
+      <label>Dose <input name="dose_texto" placeholder="Ex.: 1 comprimido" required>
+        <span class="nota">Copie a dose exatamente como está na sua receita.</span></label>
+      <div class="campos-2">
+        <label>Via
+          <select name="via"><option>injeção</option><option>oral</option><option>vaginal</option><option>spray nasal</option><option>outra</option></select>
+        </label>
+        <label>Horário <input type="time" name="horario" required></label>
+      </div>
+      <div class="campos-2">
+        <label>Início <input type="date" name="data_inicio" required></label>
+        <label>Fim <input type="date" name="data_fim" required></label>
+      </div>
+      <button class="btn largo">Salvar medicação</button>
+    </form>
+  </section>
+  <div class="frase"><p>Cuidar de hoje também é investir no amanhã.</p><div class="tracinho"></div><span style="color:#5f7d6d">{{ ramo() }}</span></div>
+</div>
+</div>
+<script>
+  const CLASSES = {{ classes_json|safe }};
+  const sel = document.getElementById('classe');
+  sel.addEventListener('change', () => {
+    document.getElementById('campo-outra-classe').hidden = sel.value !== 'Outro';
+    const c = sel.value === 'Outro' ? null : CLASSES[sel.value];
+    const box = document.getElementById('info-classe');
+    if (!c) { box.style.display = 'none'; return; }
+    document.getElementById('info-serve').textContent = c.serve;
+    document.getElementById('info-efeitos').textContent = c.efeitos ? 'Efeitos comuns: ' + c.efeitos : '';
+    const f = document.getElementById('info-fonte');
+    f.textContent = '';
+    if (c.fonte) { const a = document.createElement('a'); a.href = c.fonte[1]; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Fonte: ' + c.fonte[0]; f.appendChild(a); }
+    box.style.display = 'block';
+  });
+</script>
+{% endblock %}

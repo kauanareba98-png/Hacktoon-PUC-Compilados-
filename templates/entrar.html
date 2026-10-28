@@ -1,0 +1,69 @@
+{% from "_icones.html" import icone, ramo %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nida · Gestão e orientação para pacientes em FIV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main class="entrada">
+  <section class="apresentacao">
+    <div class="marca" style="padding:0">{{ icone('folha') }}<span><strong>Nida</strong><small>Gestão e orientação para pacientes em FIV</small></span></div>
+    <h1>Você não precisa atravessar a FIV sozinha.</h1>
+    <p class="lead">O Nida acompanha você em cada etapa da fertilização in vitro: organiza o tratamento, explica o que esperar e avisa quando é hora de procurar ajuda.</p>
+    <div class="pilares">
+      <div class="pilar"><strong>Organiza</strong><span>Linha do tempo, exames, agenda e cada dose de remédio.</span></div>
+      <div class="pilar"><strong>Orienta</strong><span>O que esperar em cada etapa, com fontes médicas confiáveis.</span></div>
+      <div class="pilar"><strong>Acolhe</strong><span>Apoio emocional e sinais de alerta para você e sua família.</span></div>
+    </div>
+    <div class="numero"><b>15%</b><p>dos casais brasileiros em idade reprodutiva enfrentam a infertilidade. Você não está sozinha nessa jornada.</p></div>
+    <p class="mini" style="color:#9fbfae; margin:0; position:relative">Fonte: Sociedade Brasileira de Reprodução Humana, citada por Tribuna de Minas (2024).</p>
+    <div class="deco">{{ ramo() }}</div>
+  </section>
+
+  <section class="formulario">
+    <div class="caixa">
+      {% if erro %}<p class="erro" role="alert">{{ erro }}</p>{% endif %}
+
+      <div id="painel-entrar" {{ 'hidden' if aba == 'cadastrar' }}>
+        <h2>Entrar</h2>
+        <p class="sub" style="margin-bottom:18px">Bem-vinda de volta.</p>
+        <form method="post" action="{{ url_for('entrar') }}" class="vertical">
+          <label>E-mail <input type="email" name="email" autocomplete="email" required></label>
+          <label>Senha <input type="password" name="senha" autocomplete="current-password" required></label>
+          <button class="btn largo">Entrar</button>
+        </form>
+        <p style="margin:16px 0 0; font-size:.9rem">Ainda não tem conta? <a href="#" onclick="trocar('cadastrar'); return false">Criar conta</a></p>
+        <p class="demo" style="margin-top:18px">Conta de demonstração: <strong>{{ demo[0] }}</strong> · senha <strong>{{ demo[1] }}</strong></p>
+      </div>
+
+      <div id="painel-cadastrar" {{ 'hidden' if aba != 'cadastrar' }}>
+        <h2>Criar conta</h2>
+        <p class="sub" style="margin-bottom:18px">Leva menos de um minuto.</p>
+        <form method="post" action="{{ url_for('cadastrar') }}" class="vertical">
+          <label>Seu nome <input name="nome" autocomplete="name" required></label>
+          <label>E-mail <input type="email" name="email" autocomplete="email" required></label>
+          <label>Senha <input type="password" name="senha" minlength="8" autocomplete="new-password" required>
+            <span class="nota">Pelo menos 8 caracteres.</span></label>
+          <label>Repita a senha <input type="password" name="senha2" minlength="8" autocomplete="new-password" required></label>
+          <button class="btn largo">Criar conta</button>
+        </form>
+        <p style="margin:16px 0 0; font-size:.9rem">Já tem conta? <a href="#" onclick="trocar('entrar'); return false">Entrar</a></p>
+      </div>
+
+      <p class="aviso-final">Seus dados de saúde são pessoais: só você tem acesso a eles. O Nida não substitui a orientação da sua equipe médica.</p>
+    </div>
+  </section>
+</main>
+<script>
+  function trocar(aba) {
+    document.getElementById('painel-entrar').hidden = aba !== 'entrar';
+    document.getElementById('painel-cadastrar').hidden = aba !== 'cadastrar';
+  }
+</script>
+</body>
+</html>

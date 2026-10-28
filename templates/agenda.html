@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, quando with context %}
+{% block aba %}Agenda{% endblock %}
+{% block titulo %}Agenda{% endblock %}
+{% block subtitulo %}Consultas, exames, ultrassons e vacinas que você marcou.{% endblock %}
+{% set rotulos = {'consulta':'Consultas','exame':'Exames','ultrassom':'Ultrassom','vacina':'Vacinas','outro':'Outros'} %}
+{% set icones = {'consulta':'estetoscopio','exame':'frasco','ultrassom':'tela','vacina':'seringa','outro':'agenda'} %}
+{% set cores = {'consulta':'','exame':'azul','ultrassom':'azul','vacina':'ambar','outro':'cinza'} %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <section class="card">
+    <nav class="abas" aria-label="Período">
+      <a href="{{ url_for('agenda', aba='proximos', tipo=tipo) }}" class="{{ 'ativo' if aba == 'proximos' }}">Próximos compromissos</a>
+      <a href="{{ url_for('agenda', aba='passados', tipo=tipo) }}" class="{{ 'ativo' if aba == 'passados' }}">Passados</a>
+    </nav>
+    <nav class="chips" aria-label="Filtrar por tipo">
+      <a href="{{ url_for('agenda', aba=aba) }}" class="{{ 'ativo' if tipo == 'todos' }}">Todos</a>
+      {% for t in tipos %}<a href="{{ url_for('agenda', aba=aba, tipo=t) }}" class="{{ 'ativo' if tipo == t }}">{{ rotulos[t] }}</a>{% endfor %}
+    </nav>
+    <div class="lista-linhas">
+      {% for c in lista %}
+      <div>
+        <span class="bolinha {{ cores.get(c.tipo, '') }}" style="width:48px; height:48px">{{ icone(icones.get(c.tipo, 'agenda')) }}</span>
+        <span class="cresce"><strong style="font-family:var(--serif); font-weight:500; font-size:1.08rem">{{ c.titulo }}</strong>
+          <span class="selo {{ 'verde' if c.tipo == 'consulta' else ('azul' if c.tipo in ('exame','ultrassom') else 'ambar') }}" style="margin-top:4px">{{ c.tipo|capitalize }}</span></span>
+        <span class="mini" style="min-width:150px; display:flex; flex-direction:column; gap:3px">
+          <span style="display:flex; gap:6px; align-items:center">{{ icone('agenda') }} {{ quando(c.data_hora) }}</span>
+          <span style="display:flex; gap:6px; align-items:center">{{ icone('local') }} {{ c.local or '—' }}</span>
+        </span>
+        <form method="post" action="{{ url_for('excluir_compromisso', id=c.id) }}"><button class="link-btn" aria-label="Excluir {{ c.titulo }}" title="Excluir">{{ icone('lixo') }}</button></form>
+      </div>
+      {% else %}<p class="vazio">Nenhum compromisso {{ 'futuro' if aba == 'proximos' else 'passado' }}{{ ' deste tipo' if tipo != 'todos' }}.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('mais') }}<h2>Novo compromisso</h2></div>
+    <form method="post" class="vertical">
+      <label>Tipo
+        <select name="tipo">{% for t in tipos %}<option value="{{ t }}">{{ t|capitalize }}</option>{% endfor %}</select>
+      </label>
+      <label>Título <input name="titulo" placeholder="Ex.: Ultrassom de controle" required></label>
+      <div class="campos-2">
+        <label>Data <input type="date" name="data" required></label>
+        <label>Hora <input type="time" name="hora" required></label>
+      </div>
+      <label>Local <input name="local" placeholder="Clínica, laboratório..."></label>
+      <button class="btn largo">{{ icone('mais') }} Salvar compromisso</button>
+    </form>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('folha') }}<h3>Dica da jornada</h3></div>
+    <p class="sub" style="margin:0">Durante a estimulação, os ultrassons e exames de sangue podem ser frequentes: são eles que ajustam o seu tratamento. Vale reservar esses horários com antecedência.</p>
+  </section>
+</div>
+</div>
+{% endblock %}

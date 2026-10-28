@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo with context %}
+{% block aba %}Minha conta{% endblock %}
+{% block titulo %}{{ 'Vamos começar' if primeira_vez else 'Minha conta' }}{% endblock %}
+{% block subtitulo %}{{ 'Conte um pouco sobre o seu tratamento para o Nida montar a sua linha do tempo.' if primeira_vez else 'Seus dados e o caminho do seu tratamento.' }}{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <section class="card">
+    <form method="post" class="vertical">
+      <div class="campos-2">
+        <label>Nome <input name="nome" value="{{ pac.nome or '' }}" required></label>
+        <label>Data de nascimento <input type="date" name="data_nascimento" value="{{ pac.data_nascimento or '' }}" required></label>
+        <label>Início do tratamento <input type="date" name="data_inicio" value="{{ pac.data_inicio or hoje.isoformat() }}" required>
+          <span class="nota">Se ainda vai começar, use a data prevista.</span></label>
+        <label>Clínica <input name="clinica" value="{{ pac.clinica or '' }}" placeholder="Nome da clínica ou centro"></label>
+      </div>
+      <h2 style="margin-top:6px">Por onde você vai fazer o tratamento?</h2>
+      <div class="opcoes" role="radiogroup">
+        {% for valor, nome, desc in [('SUS','SUS','Gratuito, pela rede pública'),('convenio','Convênio','Pelo plano de saúde'),('particular','Particular','Clínica privada')] %}
+        <div style="position:relative"><input type="radio" name="caminho" id="c-{{ valor }}" value="{{ valor }}" {{ 'checked' if (pac.caminho or 'particular') == valor }}>
+          <label for="c-{{ valor }}"><strong>{{ nome }}</strong><span class="mini">{{ desc }}</span></label></div>
+        {% endfor %}
+      </div>
+      {% if not primeira_vez %}<p class="nota" style="margin:0">Mudar o caminho ou a data de início refaz a linha do tempo.</p>{% endif %}
+      <div><button class="btn">{{ 'Montar minha linha do tempo' if primeira_vez else 'Salvar' }}</button></div>
+    </form>
+  </section>
+</div>
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('pessoa') }}<h2>Acesso</h2></div>
+    <p class="sub" style="margin:0">E-mail: <strong style="color:var(--texto)">{{ email }}</strong></p>
+    <a class="btn contorno largo" style="margin-top:14px" href="{{ url_for('sair') }}">Sair da conta</a>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('escudo') }}<h3>Seus dados são seus</h3></div>
+    <p class="sub" style="margin:0">Dados de saúde são sensíveis pela LGPD. No Nida, cada conta só enxerga os próprios registros.</p>
+  </section>
+</div>
+</div>
+{% endblock %}

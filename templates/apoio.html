@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, fontes with context %}
+{% block aba %}Apoio emocional{% endblock %}
+{% block titulo %}Apoio emocional{% endblock %}
+{% block subtitulo %}O tratamento mexe com o corpo e com as emoções. Aqui você registra como está e encontra apoio.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  {% if alerta_humor %}
+  <div class="alerta ambar" role="status">{{ icone('coracao') }}
+    <div><h3>Você tem passado por dias difíceis</h3>
+      <p>Conversar com um profissional pode ajudar muito. Fale com a sua clínica ou procure apoio psicológico. Se estiver em sofrimento intenso, o CVV atende 24 horas pelo 188.</p>
+      <div class="acoes"><a class="btn peq" href="tel:188">{{ icone('telefone') }} Ligar 188 (CVV)</a></div></div>
+  </div>
+  {% endif %}
+
+  <section class="card suave">
+    <div class="card-titulo"><span class="bolinha" style="background:#fff">{{ icone('folha') }}</span><h2>O que é comum sentir {{ 'na fase de ' ~ atual.nome|lower if atual else 'agora' }}</h2></div>
+    <p style="margin:0">{{ texto or 'Cada fase do tratamento traz emoções diferentes, e todas elas são válidas.' }}</p>
+    {{ fontes(fontes_texto) }}
+  </section>
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('coracao') }}<h2>Como você está hoje?</h2></div>
+    <form method="post" class="vertical">
+      <fieldset style="border:0; padding:0; margin:0">
+        <legend class="sr">Como você está hoje</legend>
+        <div class="escala humor">
+          {% for n in [1, 2, 3, 4, 5] %}<input type="radio" name="nivel" id="h{{ n }}" value="{{ n }}" {{ 'checked' if n == 3 }}><label for="h{{ n }}">{{ humores[n] }}</label>{% endfor %}
+        </div>
+      </fieldset>
+      <label>Quer anotar algo? (opcional) <textarea name="nota" rows="2" placeholder="Ex.: fiquei mais sensível hoje"></textarea></label>
+      <input type="hidden" name="data" value="{{ hoje.isoformat() }}">
+      <button class="btn">Registrar</button>
+    </form>
+    {% if meds_hoje %}
+    <p class="mini" style="margin:14px 0 0">Hoje você está usando: {% for m in meds_hoje %}{{ m.nome }}{{ ', ' if not loop.last }}{% endfor %}. As medicações hormonais podem causar oscilações de humor; se você estiver mais sensível, isso pode ter relação com o tratamento.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('relogio') }}<h2>Seus últimos registros</h2></div>
+    <div class="lista-linhas">
+      {% for r in registros %}
+      <div>
+        <span class="selo {{ 'vermelho' if r.nivel <= 2 else ('ambar' if r.nivel == 3 else 'verde') }}" style="min-width:110px; justify-content:center">{{ humores[r.nivel] }}</span>
+        <span class="cresce">{{ r.nota or '—' }}</span>
+        <span class="mini">{{ r.data|br }}</span>
+      </div>
+      {% else %}<p class="vazio">Nenhum registro ainda.</p>{% endfor %}
+    </div>
+  </section>
+
+  <section class="placeholder">
+    <div class="card-titulo">{{ icone('pessoa') }}<strong>Comunidade</strong></div>
+    <p style="margin:0">Em desenvolvimento: espaço anônimo de apoio entre mulheres, organizado por fase do tratamento, com regras de convivência e moderação.</p>
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="placeholder">
+    <div class="card-titulo">{{ icone('folha') }}<strong>Respiração guiada</strong></div>
+    <p style="margin:0">Em desenvolvimento: exercício de 1 a 2 minutos para momentos de ansiedade.</p>
+  </section>
+  <section class="card">
+    <div class="card-titulo">{{ icone('estetoscopio') }}<h3>Onde buscar ajuda</h3></div>
+    <ul style="margin:0; padding-left:18px; font-size:.92rem">
+      <li>Sua clínica: muitas têm psicólogo na equipe.</li>
+      <li>UBS e serviços de saúde mental do SUS.</li>
+      <li>Clínicas-escola de psicologia das universidades.</li>
+      <li>Em sofrimento intenso: CVV, 24 horas, pelo <strong>188</strong>.</li>
+    </ul>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('pessoa') }}<h3>Para quem está ao seu lado</h3></div>
+    <p class="sub" style="margin:0">{{ parceria }}</p>
+    {{ fontes(fontes_parceria) }}
+  </section>
+</div>
+</div>
+{% endblock %}

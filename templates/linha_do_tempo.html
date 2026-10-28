@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, fontes with context %}
+{% block aba %}Linha do tempo{% endblock %}
+{% block titulo %}Linha do tempo do tratamento{% endblock %}
+{% block subtitulo %}Veja o progresso da sua jornada e o que vem a seguir. Ao concluir uma etapa, as datas seguintes se ajustam.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <ul class="tempo">
+  {% for e in etapas %}
+    <li class="{{ e.status }}">
+      <span class="marcador">{% if e.status == 'concluida' %}{{ icone('check') }}{% endif %}</span>
+      <div class="etapa">
+        <div>
+          <h3>{{ loop.index }}. {{ e.nome }}</h3>
+          <div class="meta">
+            <span style="display:flex; gap:5px; align-items:center">{{ icone('agenda') }} {{ e.inicio|curta }} – {{ e.fim|curta }}</span>
+            <span>·</span><span>{{ e.duracao_dias }} dia{{ 's' if e.duracao_dias != 1 }} previsto{{ 's' if e.duracao_dias != 1 }}</span>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap">
+            {% if e.status == 'concluida' %}<span class="selo verde">Concluída</span>
+            {% elif e.status == 'atual' %}<span class="selo ambar">Etapa atual</span>
+            {% else %}<span class="selo">Futura</span>{% endif %}
+            {% if e.atrasada %}<span class="selo vermelho">passou da previsão</span>{% endif %}
+          </div>
+          <div class="acoes">
+            {% if e.status == 'atual' %}
+            <form method="post" action="{{ url_for('concluir_etapa', id=e.id) }}" style="display:flex; gap:6px; align-items:center">
+              <input type="date" name="data" value="{{ hoje.isoformat() }}" aria-label="Data de conclusão">
+              <button class="btn peq">Concluir etapa</button>
+            </form>
+            {% elif e.status == 'concluida' %}
+            <form method="post" action="{{ url_for('reabrir_etapa', id=e.id) }}"><button class="btn peq contorno">Reabrir</button></form>
+            {% endif %}
+            {% if e.status != 'concluida' %}
+            <form method="post" action="{{ url_for('mudar_duracao', id=e.id) }}" style="display:flex; gap:6px; align-items:center">
+              <input type="number" name="dias" min="1" value="{{ e.duracao_dias }}" aria-label="Duração em dias">
+              <button class="btn peq contorno">Ajustar dias</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        <div class="esperar"><p class="resumo-etapa">{{ e.resumo }}</p><details {{ 'open' if e.status == 'atual' }}>
+          <summary>{{ icone('info') }} O que esperar nesta etapa</summary>
+          <p>{{ e.esperar }}</p>
+          {% if e.efeitos %}<p class="mini" style="margin-top:8px"><strong style="color:var(--texto)">É comum sentir:</strong> {{ e.efeitos|join(', ')|lower }}.</p>{% endif %}
+          {{ fontes(e.fontes) }}
+        </details></div>
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <h2 style="margin-bottom:14px">Progresso do tratamento</h2>
+    <div class="anel">
+      <svg viewBox="0 0 120 120" role="img" aria-label="{{ pct }}% concluído">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#e7e1d5" stroke-width="12"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#2b6b54" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="{{ (314.16 * pct / 100)|round(1) }} 314.16" transform="rotate(-90 60 60)"/>
+        <text x="60" y="68" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="26" fill="#173d32">{{ pct }}%</text>
+      </svg>
+      <div>
+        <div class="mini">Etapa atual</div>
+        <div style="font-weight:600; color:var(--verde-escuro)">{{ atual.nome if atual else 'Concluído' }}</div>
+        <div class="mini">{{ concluidas }} de {{ etapas|length }} etapas concluídas</div>
+      </div>
+    </div>
+    <div class="grade-2" style="margin-top:18px; gap:10px">
+      <div class="card" style="padding:12px"><div class="mini">Dias restantes</div><strong>{{ dias_restantes }} dias</strong></div>
+      <div class="card" style="padding:12px"><div class="mini">Fim estimado</div><strong>{{ etapas[-1].fim|br }}</strong></div>
+    </div>
+    <p class="mini" style="margin:12px 0 0">Duração total estimada: cerca de {{ duracao }} dias. As datas são estimativas; quem define o calendário é a sua clínica.</p>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('estetoscopio') }}<h3>Precisa de ajuda?</h3></div>
+    <p class="sub" style="margin:0">Em caso de dúvidas ou sintomas, fale com a sua equipe médica. Na tela de Sintomas você vê os sinais que pedem atenção.</p>
+  </section>
+  <div class="frase"><p>Cada etapa é um passo a mais.</p><div class="tracinho"></div><span style="color:#5f7d6d">{{ ramo() }}</span></div>
+</div>
+</div>
+{% endblock %}

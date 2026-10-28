@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, fontes with context %}
+{% block aba %}Clínicas{% endblock %}
+{% block titulo %}Clínicas e equipe{% endblock %}
+{% block subtitulo %}Onde fazer o tratamento, o caminho de acesso e os contatos da sua equipe médica.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <section class="placeholder">
+    <div class="card-titulo">{{ icone('mapa') }}<strong>Mapa de clínicas próximas</strong></div>
+    <p style="margin:0">Em desenvolvimento: mapa com Leaflet e OpenStreetMap, usando a localização da usuária para listar as clínicas mais próximas.</p>
+  </section>
+
+  {% if pac.caminho == 'SUS' and idade and idade >= 33 %}
+  <div class="alerta ambar">{{ icone('relogio') }}<div><h3>Atenção ao limite de idade</h3>
+    <p>Muitos centros do SUS atendem mulheres até 35 anos e a fila costuma ser longa. Com {{ idade }} anos, vale buscar o encaminhamento o quanto antes.</p></div></div>
+  {% endif %}
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('local') }}<h2>Seu caminho: {{ guia_titulo|lower }}</h2><a href="{{ url_for('minha_conta') }}">Alterar</a></div>
+    <ul class="lista-linhas" style="list-style:none; margin:0; padding:0">
+      {% for g in guia %}<li><span style="color:var(--verde)">{{ icone('check-circulo') }}</span><span class="cresce">{{ g }}</span></li>{% endfor %}
+    </ul>
+    {{ fontes(guia_fontes) }}
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('estetoscopio') }}<h2>Minha equipe médica</h2></div>
+    <p class="mini" style="margin:-6px 0 8px">O primeiro contato aparece nos botões "Ligar para minha clínica" dos alertas.</p>
+    <div class="lista-linhas">
+      {% for p in equipe %}
+      <div>
+        <span class="bolinha cinza">{{ icone('pessoa') }}</span>
+        <span class="cresce"><strong>{{ p.nome }}</strong><span class="mini">{{ p.especialidade }}</span>
+          {% if p.telefone %}<a class="mini" href="{{ p.telefone|tel }}" style="display:flex; gap:4px; align-items:center">{{ icone('telefone') }} {{ p.telefone }}</a>{% endif %}</span>
+        <form method="post" action="{{ url_for('excluir_equipe', id=p.id) }}"><button class="link-btn" aria-label="Remover {{ p.nome }}" title="Remover">{{ icone('lixo') }}</button></form>
+      </div>
+      {% else %}<p class="vazio">Nenhum contato cadastrado.</p>{% endfor %}
+    </div>
+    <details style="margin-top:12px">
+      <summary class="btn contorno largo" style="list-style:none">{{ icone('mais') }} Adicionar profissional</summary>
+      <form method="post" action="{{ url_for('adicionar_equipe') }}" class="vertical" style="margin-top:12px">
+        <label>Nome <input name="nome" autocomplete="off" required></label>
+        <label>Especialidade <input name="especialidade" autocomplete="off" placeholder="Ex.: Reprodução humana"></label>
+        <label>Telefone <input name="telefone" type="tel" autocomplete="off" placeholder="(62) 0000-0000"></label>
+        <button class="btn">Salvar contato</button>
+      </form>
+    </details>
+  </section>
+</div>
+</div>
+{% endblock %}

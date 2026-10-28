@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, quando with context %}
+{% block aba %}Painel{% endblock %}
+{% block titulo %}Olá, {{ pac.nome.split()[0] }}!{% endblock %}
+{% block subtitulo %}Aqui está um resumo da sua jornada até o momento.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+
+  {% for a in alertas[:1] %}
+  <div class="alerta vermelho">
+    {{ icone('alerta') }}
+    <div>
+      <h3>{{ 'Emergência: ' if a.nivel == 2 }}você registrou "{{ a.nome }}" em {{ a.data|br }}</h3>
+      <p>{% if a.nivel == 2 %}Se ainda estiver sentindo isso, ligue 192 ou vá a um pronto-socorro.{% else %}Se ainda estiver sentindo isso, entre em contato com sua clínica agora.{% endif %}</p>
+      <div class="acoes">
+        {% if a.nivel == 2 %}<a class="btn vermelho peq" href="tel:192">{{ icone('telefone') }} Ligar 192</a>{% endif %}
+        {% if telefone %}<a class="btn peq" href="{{ telefone|tel }}">{{ icone('telefone') }} Ligar para minha clínica</a>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <section class="card suave">
+    <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap">
+      <div style="flex:1; min-width:220px">
+        <div class="sub" style="color:var(--verde-escuro); font-weight:500">Seu tratamento</div>
+        <h2 style="font-size:1.8rem; margin-top:2px">Fase atual: {{ atual.nome if atual else 'tratamento concluído' }}</h2>
+        {% if atual %}<p class="sub">{{ atual.resumo }} · até {{ atual.fim|br }}</p>{% endif %}
+      </div>
+      <div class="card" style="padding:14px 18px; min-width:150px">
+        <div class="mini" style="display:flex; gap:6px; align-items:center">{{ icone('relogio') }} Dias restantes</div>
+        <div style="font-family:var(--serif); font-size:1.6rem; color:var(--verde-escuro)">{{ dias_restantes }}</div>
+        <div class="mini">fim previsto {{ etapas[-1].fim|br }}</div>
+      </div>
+    </div>
+    <div class="trilho" style="grid-template-columns: repeat({{ etapas|length }}, 1fr)">
+      {% for e in etapas %}
+      <div class="passo {{ e.status }}"><div class="ponto"></div><span>{{ e.nome }}</span></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="grade-4">
+    <a class="card stat" href="{{ url_for('medicacao') }}">
+      <span class="bolinha">{{ icone('pilula') }}</span>
+      <span><span class="rotulo">Próxima dose</span>
+      {% if doses.proxima %}<span class="valor pequeno">{{ quando(doses.proxima.data_hora_prevista) }}</span><span class="mini">{{ doses.proxima.nome }}</span>
+      {% else %}<span class="valor pequeno">—</span>{% endif %}</span>
+    </a>
+    <a class="card stat" href="{{ url_for('agenda') }}">
+      <span class="bolinha">{{ icone('agenda') }}</span>
+      <span><span class="rotulo">Próximo compromisso</span>
+      {% if proximos %}<span class="valor pequeno">{{ quando(proximos[0].data_hora) }}</span><span class="mini">{{ proximos[0].titulo }}</span>
+      {% else %}<span class="valor pequeno">—</span>{% endif %}</span>
+    </a>
+    <a class="card stat" href="{{ url_for('exames') }}">
+      <span class="bolinha">{{ icone('frasco') }}</span>
+      <span><span class="rotulo">Exames</span><span class="valor pequeno" style="{{ 'color:var(--ambar)' if exames_pend }}">{{ exames_pend }} pendente{{ 's' if exames_pend != 1 }}</span><span class="mini">{{ exames_total }} no total</span></span>
+    </a>
+    <a class="card stat" href="{{ url_for('sintomas') }}">
+      <span class="bolinha {{ 'vermelho' if alertas else '' }}">{{ icone('alerta') }}</span>
+      <span><span class="rotulo">Alertas</span><span class="valor pequeno" style="{{ 'color:var(--vermelho)' if alertas }}">{{ alertas|length if alertas else 'Nenhum' }}</span><span class="mini">últimos 7 dias</span></span>
+    </a>
+  </div>
+
+  <div class="grade-2" style="grid-template-columns: 1.5fr 1fr">
+    <section class="card">
+      <div class="card-titulo"><h2>Resumo da medicação</h2></div>
+      <div class="grade-3" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="card" style="padding:14px"><div class="mini">Doses de hoje</div><div class="valor-solto">{{ doses.hoje_tomadas }}<small> de {{ doses.hoje|length }}</small></div>
+          <div class="barra"><span style="width:{{ (100 * doses.hoje_tomadas / doses.hoje|length)|round|int if doses.hoje else 0 }}%"></span></div></div>
+        <div class="card" style="padding:14px"><div class="mini">Atrasadas</div><div class="valor-solto {{ 'vermelho' if doses.atrasadas }}">{{ doses.atrasadas|length }}</div></div>
+        <div class="card" style="padding:14px"><div class="mini">Adesão</div><div class="valor-solto">{{ doses.adesao }}%</div>
+          <div class="barra"><span style="width:{{ doses.adesao }}%"></span></div></div>
+      </div>
+      {% if doses.atrasadas %}
+      <div class="alerta ambar" style="margin-top:14px">{{ icone('relogio') }}<div><h3>Há {{ doses.atrasadas|length }} dose(s) sem marcar</h3><p>Se você já tomou, marque na tela de medicação. Se esqueceu, fale com a sua clínica antes de tomar.</p></div></div>
+      {% else %}
+      <div class="alerta verde" style="margin-top:14px">{{ icone('folha') }}<div><h3>Suas doses estão em dia</h3><p>Continue seguindo as orientações da sua equipe médica.</p></div></div>
+      {% endif %}
+    </section>
+    <section class="card {{ 'vermelho' if alertas else 'suave' }}">
+      <div class="card-titulo"><span class="bolinha {{ 'vermelho' if alertas }}">{{ icone('alerta' if alertas else 'escudo') }}</span><h2>{{ 'Atenção aos sintomas' if alertas else 'Nenhum alerta' }}</h2></div>
+      {% if alertas %}
+        {% for a in alertas[:3] %}<p style="margin:4px 0">{{ a.nome }} <span class="mini">({{ a.data|br }})</span></p>{% endfor %}
+        <a class="btn peq" style="margin-top:10px" href="{{ url_for('sintomas') }}">Ver sintomas</a>
+      {% else %}
+        <p class="sub">Nos últimos 7 dias você não registrou nenhum sinal de alerta.</p>
+        <a class="btn contorno peq" style="margin-top:12px" href="{{ url_for('sintomas') }}">Registrar sintoma</a>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('agenda') }}<h2>Próximos compromissos</h2><a href="{{ url_for('agenda') }}">Ver todos</a></div>
+    <div class="lista-linhas">
+      {% for c in proximos %}
+      <div>
+        <span class="bolinha {{ {'exame':'azul','ultrassom':'azul','vacina':'ambar'}.get(c.tipo, '') }}">{{ icone({'consulta':'estetoscopio','exame':'frasco','ultrassom':'tela','vacina':'seringa'}.get(c.tipo, 'agenda')) }}</span>
+        <span class="cresce"><strong>{{ c.titulo }}</strong><span class="mini">{{ c.tipo|capitalize }}</span></span>
+        <span class="mini" style="min-width:110px">{{ quando(c.data_hora) }}</span>
+        <span class="mini" style="display:flex; gap:4px; align-items:center; min-width:120px">{{ icone('local') }} {{ c.local or '—' }}</span>
+      </div>
+      {% else %}<p class="vazio">Nenhum compromisso agendado.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('agenda') }}<h2>Dia de hoje</h2></div>
+    <div class="lista-linhas">
+      {% for d in doses.hoje %}
+      <div>
+        <span style="color:{{ 'var(--verde)' if d.tomada else 'var(--suave)' }}">{{ icone('check-circulo' if d.tomada else 'circulo') }}</span>
+        <span class="cresce"><strong style="font-weight:500">{{ d.nome }}</strong><span class="mini">{{ d.data_hora_prevista[11:] }} · {{ d.via }}</span></span>
+        {% if not d.tomada %}<form method="post" action="{{ url_for('tomar_dose', id=d.id) }}"><button class="btn peq contorno">Tomei</button></form>{% endif %}
+      </div>
+      {% else %}<p class="vazio">Nenhuma dose hoje.</p>{% endfor %}
+      <a href="{{ url_for('sintomas') }}" style="text-decoration:none; color:inherit">
+        <span style="color:var(--suave)">{{ icone('coracao') }}</span><span class="cresce">Registrar como estou hoje</span>{{ icone('seta') }}
+      </a>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('relogio') }}<h2>Linha do tempo</h2><a href="{{ url_for('tela_linha_do_tempo') }}">Ver completa</a></div>
+    <ul class="tempo" style="--x:0">
+      {% for e in etapas %}
+      <li class="{{ e.status }}" style="margin-bottom:6px; padding-left:40px">
+        <span class="marcador" style="width:14px; height:14px; top:4px; left:8px; border-width:3px">{% if e.status == 'concluida' %}{% endif %}</span>
+        <div style="{{ 'font-weight:600' if e.status == 'atual' }}">{{ e.nome }}</div>
+        <div class="mini">{{ e.inicio|curta }} a {{ e.fim|curta }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <div class="frase"><p>Cada passo é um avanço.</p><div class="tracinho"></div><span style="color:#5f7d6d">{{ ramo() }}</span></div>
+</div>
+</div>
+{% endblock %}

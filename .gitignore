@@ -1,0 +1,11 @@
+# banco local (cada pessoa tem o seu)
+*.db
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# sistema
+.DS_Store
+Thumbs.db
+.vscode/

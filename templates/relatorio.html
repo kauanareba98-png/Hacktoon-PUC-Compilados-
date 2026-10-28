@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo with context %}
+{% block aba %}Relatório{% endblock %}
+{% block titulo %}Relatório para a consulta{% endblock %}
+{% block subtitulo %}Um resumo de uma página para levar à sua equipe médica.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <div class="grade-4 nao-imprimir">
+    <div class="card stat"><span class="bolinha">{{ icone('relogio') }}</span><span><span class="valor">{{ etapas|selectattr('status', 'equalto', 'concluida')|list|length }}<small style="font-size:1rem"> de {{ etapas|length }}</small></span><span class="mini">etapas concluídas</span></span></div>
+    <div class="card stat"><span class="bolinha azul">{{ icone('frasco') }}</span><span><span class="valor">{{ exames|length - exames_pend|length }}<small style="font-size:1rem"> de {{ exames|length }}</small></span><span class="mini">exames entregues</span></span></div>
+    <div class="card stat"><span class="bolinha ambar">{{ icone('pilula') }}</span><span><span class="valor">{{ doses.adesao }}%</span><span class="mini">adesão às doses</span></span></div>
+    <div class="card stat"><span class="bolinha vermelho">{{ icone('coracao') }}</span><span><span class="valor">{{ sintomas|length }}</span><span class="mini">sintomas registrados</span></span></div>
+  </div>
+
+  <article class="folha">
+    <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap">
+      <h2>Relatório para a consulta</h2>
+      <span style="font-size:.8rem; color:#555">Gerado em {{ hoje|br }} pelo Nida</span>
+    </div>
+
+    <h4>Paciente</h4>
+    <p><strong>{{ pac.nome }}</strong> · {{ idade }} anos · via {{ {'SUS':'SUS','convenio':'convênio','particular':'particular'}[pac.caminho] }}{{ ' · ' ~ pac.clinica if pac.clinica }}</p>
+    <p>Início do tratamento: {{ pac.data_inicio|br }} · Etapa atual: <strong>{{ atual.nome if atual else 'concluído' }}</strong></p>
+
+    <h4>Etapas</h4>
+    <table>{% for e in etapas %}<tr><td>{{ e.nome }}</td><td>{{ e.inicio|br }} a {{ e.fim|br }}</td><td>{{ {'concluida':'concluída','atual':'atual','futura':'prevista'}[e.status] }}</td></tr>{% endfor %}</table>
+
+    <h4>Medicação</h4>
+    <p>Adesão: {{ doses.tomadas }} de {{ doses.total }} doses marcadas como tomadas ({{ doses.adesao }}%).{% if doses.atrasadas %} Doses não marcadas: {% for d in doses.atrasadas %}{{ d.nome }} em {{ d.data_hora_prevista|br }}{{ '; ' if not loop.last }}{% endfor %}.{% endif %}</p>
+    <table>
+      <tr><th>Medicamento</th><th>Tipo</th><th>Dose</th><th>Via e horário</th><th>Período</th></tr>
+      {% for m in meds %}<tr><td>{{ m.nome }}</td><td>{{ m.classe or '—' }}</td><td>{{ m.dose_texto }}</td><td>{{ m.via }}, {{ m.horario }}</td><td>{{ m.data_inicio|br }} a {{ m.data_fim|br }}</td></tr>{% endfor %}
+    </table>
+
+    <h4>Sintomas e reações registrados</h4>
+    {% if sintomas %}
+    <table>
+      <tr><th>Data</th><th>Sintoma</th><th>Intensidade</th><th>Observação</th></tr>
+      {% for s in sintomas %}<tr><td>{{ s.data|br }}</td><td>{{ s.nome }}{{ ' (EMERGÊNCIA)' if s.nivel == 2 else (' (ALERTA)' if s.nivel == 1) }}</td><td>{{ s.intensidade }}/10</td><td>{{ s.observacao or '' }}</td></tr>{% endfor %}
+    </table>
+    {% else %}<p>Nenhum sintoma registrado.</p>{% endif %}
+
+    <h4>Exames sem resultado</h4>
+    <p>{% for e in exames_pend %}{{ e.nome }} ({{ e.status }}){{ '; ' if not loop.last }}{% else %}Todos os resultados entregues.{% endfor %}</p>
+
+    <h4>Próximos compromissos</h4>
+    {% if prox %}<table>{% for c in prox %}<tr><td>{{ c.data_hora|br }}</td><td>{{ c.titulo }}</td><td>{{ c.local }}</td></tr>{% endfor %}</table>
+    {% else %}<p>Nenhum compromisso agendado.</p>{% endif %}
+
+    <h4>Minhas dúvidas para a consulta</h4>
+    <p style="color:#777">1. ______________________________________________<br>2. ______________________________________________<br>3. ______________________________________________</p>
+
+    <p style="font-size:.75rem; color:#666; margin-top:18px">Informações registradas pela própria paciente no Nida. Não substituem a avaliação da equipe médica.</p>
+  </article>
+</div>
+
+<div class="coluna nao-imprimir">
+  <section class="card">
+    <div class="card-titulo">{{ icone('imprimir') }}<h2>Imprimir ou salvar</h2></div>
+    <p class="sub" style="margin:0 0 14px">Na janela que abrir, escolha a impressora ou "Salvar como PDF".</p>
+    <button class="btn largo" onclick="window.print()">{{ icone('imprimir') }} Imprimir / salvar em PDF</button>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('info') }}<h3>Por que levar o relatório</h3></div>
+    <p class="sub" style="margin:0">Na consulta é fácil esquecer datas, doses e sintomas. Com tudo numa página, a equipe médica entende rápido como foram os seus dias.</p>
+  </section>
+  <div class="frase"><p>Informação organizada, consulta mais tranquila.</p><div class="tracinho"></div><span style="color:#5f7d6d">{{ ramo() }}</span></div>
+</div>
+</div>
+{% endblock %}

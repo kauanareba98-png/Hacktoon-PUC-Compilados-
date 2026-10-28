@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo with context %}
+{% block aba %}Exames<script>
+  const selExame = document.getElementById('nome-exame');
+  selExame.addEventListener('change', () => {
+    const outro = selExame.value === 'Outro';
+    document.getElementById('campo-outro-exame').hidden = !outro;
+    document.querySelector('[name=outro]').required = outro;
+  });
+</script>
+{% endblock %}
+{% block titulo %}Exames<script>
+  const selExame = document.getElementById('nome-exame');
+  selExame.addEventListener('change', () => {
+    const outro = selExame.value === 'Outro';
+    document.getElementById('campo-outro-exame').hidden = !outro;
+    document.querySelector('[name=outro]').required = outro;
+  });
+</script>
+{% endblock %}
+{% block subtitulo %}Acompanhe os exames do tratamento e entenda para que serve cada um.<script>
+  const selExame = document.getElementById('nome-exame');
+  selExame.addEventListener('change', () => {
+    const outro = selExame.value === 'Outro';
+    document.getElementById('campo-outro-exame').hidden = !outro;
+    document.querySelector('[name=outro]').required = outro;
+  });
+</script>
+{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  <div class="grade-3">
+    <div class="card stat" style="background:var(--ambar-fundo); border-color:#f0dcb4"><span class="bolinha ambar">{{ icone('relogio') }}</span>
+      <span><span class="rotulo">Pendentes</span><span class="valor ambar">{{ cont.pendente }}</span><span class="mini">aguardando realização</span></span></div>
+    <div class="card stat" style="background:var(--azul-fundo); border-color:#d2e1ea"><span class="bolinha azul">{{ icone('frasco') }}</span>
+      <span><span class="rotulo">Feitos</span><span class="valor" style="color:var(--azul)">{{ cont.feito }}</span><span class="mini">aguardando resultado</span></span></div>
+    <div class="card stat" style="background:var(--verde-claro); border-color:#d3e3da"><span class="bolinha">{{ icone('check') }}</span>
+      <span><span class="rotulo">Entregues</span><span class="valor">{{ cont.entregue }}</span><span class="mini">com resultado em mãos</span></span></div>
+  </div>
+
+  <section class="card rolavel">
+    <table>
+      <thead><tr><th>Nome do exame</th><th>Para quem</th><th>Status</th><th><span class="sr">Ações</span></th></tr></thead>
+      <tbody>
+      {% for e in exames %}
+      {% set i = info.get(e.nome) %}
+      <tr>
+        <td style="min-width:240px">
+          <strong style="font-weight:500">{{ e.nome }}</strong>
+          <details style="margin-top:2px">
+            <summary class="mini" style="cursor:pointer; color:var(--verde)">Para que serve</summary>
+            <p class="mini" style="margin:4px 0 0; color:var(--texto)">{% if i %}{{ i[1] }} <a href="{{ F[i[2]][1] }}" target="_blank" rel="noopener">{{ F[i[2]][0] }}</a>{% else %}Pergunte à sua clínica o objetivo deste exame.{% endif %}</p>
+          </details>
+        </td>
+        <td>{{ {'ela':'Ela','parceiro':'Parceiro','casal':'Casal'}.get(e.para_quem, e.para_quem) }}</td>
+        <td>
+          <form method="post" action="{{ url_for('status_exame', id=e.id) }}">
+            <select name="status" onchange="this.form.submit()" aria-label="Status de {{ e.nome }}" style="min-width:130px">
+              {% for s, rot in [('pendente','Pendente'),('feito','Feito'),('entregue','Entregue')] %}<option value="{{ s }}" {{ 'selected' if e.status == s }}>{{ rot }}</option>{% endfor %}
+            </select>
+            <noscript><button class="btn peq">Salvar</button></noscript>
+          </form>
+        </td>
+        <td><form method="post" action="{{ url_for('excluir_exame', id=e.id) }}"><button class="link-btn" title="Excluir" aria-label="Excluir {{ e.nome }}">{{ icone('lixo') }}</button></form></td>
+      </tr>
+      {% else %}<tr><td colspan="4" class="vazio">Nenhum exame cadastrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card">
+    <div class="card-titulo">{{ icone('mais') }}<h2>Adicionar exame</h2></div>
+    <form method="post" class="vertical">
+      <label>Nome do exame
+        <select name="nome" id="nome-exame" required>
+          <option value="" disabled selected>Selecione</option>
+          {% for n in info %}<option>{{ n }}</option>{% endfor %}
+          <option>Outro</option>
+        </select>
+      </label>
+      <label id="campo-outro-exame" hidden>Qual exame? <input name="outro" autocomplete="off" placeholder="Digite o nome do exame"></label>
+      <label>Para quem
+        <select name="para_quem"><option value="ela">Ela</option><option value="parceiro">Parceiro</option><option value="casal">Casal</option></select>
+      </label>
+      <button class="btn largo">{{ icone('mais') }} Salvar</button>
+    </form>
+  </section>
+  <section class="card suave">
+    <div class="card-titulo">{{ icone('info') }}<h3>Exames obrigatórios</h3></div>
+    <p class="sub" style="margin:0">A Anvisa exige sorologias de HIV, hepatites B e C e sífilis de quem vai usar os próprios óvulos e sêmen, colhidas até 90 dias antes da coleta.</p>
+    <div class="fontes"><a href="{{ F.anvisa[1] }}" target="_blank" rel="noopener">{{ F.anvisa[0] }}</a></div>
+  </section>
+  <div class="frase"><p>Cada exame importa.</p><div class="tracinho"></div><span style="color:#5f7d6d">{{ ramo() }}</span></div>
+</div>
+</div>
+<script>
+  const selExame = document.getElementById('nome-exame');
+  selExame.addEventListener('change', () => {
+    const outro = selExame.value === 'Outro';
+    document.getElementById('campo-outro-exame').hidden = !outro;
+    document.querySelector('[name=outro]').required = outro;
+  });
+</script>
+{% endblock %}

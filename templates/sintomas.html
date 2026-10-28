@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone, ramo, fontes with context %}
+{% block aba %}Sintomas{% endblock %}
+{% block titulo %}Sintomas{% endblock %}
+{% block subtitulo %}Registre como você está se sentindo. O Nida mostra o que é comum nesta fase e o que pede atenção.{% endblock %}
+{% block corpo %}
+<div class="conteudo">
+<div class="coluna">
+  {% if novo and novo.nivel == 2 %}
+  <div class="alerta vermelho" role="alert">
+    <span style="color:var(--vermelho)">{{ icone('alerta') }}</span>
+    <div><h3>Sinal de alerta: {{ novo.nome }}</h3>
+      <p>Isso pode ser uma emergência. Ligue 192 ou vá a um pronto-socorro agora. Não dirija sozinha.</p>
+      <div class="acoes"><a class="btn vermelho" href="tel:192">{{ icone('telefone') }} Ligar 192</a>
+        {% if telefone %}<a class="btn contorno" href="{{ telefone|tel }}">Avisar minha clínica</a>{% endif %}</div></div>
+  </div>
+  {% elif novo and novo.nivel == 1 %}
+  <div class="alerta vermelho" role="alert">
+    <span style="color:var(--vermelho)">{{ icone('alerta') }}</span>
+    <div><h3>Sinal de atenção: {{ novo.nome }}</h3>
+      <p>Entre em contato com a sua clínica agora. Ninguém está incomodando ao ligar: a equipe quer saber.</p>
+      {% if telefone %}<div class="acoes"><a class="btn" href="{{ telefone|tel }}">{{ icone('telefone') }} Ligar para minha clínica</a></div>{% endif %}</div>
+  </div>
+  {% elif novo %}
+  <div class="alerta verde" role="status">{{ icone('check-circulo') }}
+    <div><h3>Registrado</h3><p>{% if novo.nome in esperados %}"{{ novo.nome }}" é comum na fase de {{ atual.nome|lower }}. Se piorar, avise a sua clínica.{% else %}Se o sintoma piorar ou te preocupar, fale com a sua clínica.{% endif %}</p></div></div>
+  {% endif %}
+
+  <div class="grade-3">
+    <div class="card stat"><span class="bolinha">{{ icone('relatorio') }}</span><span><span class="rotulo">Total de registros</span><span class="valor">{{ cont.total }}</span></span></div>
+    <div class="card stat"><span class="bolinha">{{ icone('folha') }}</span><span><span class="rotulo">Comuns nesta fase</span><span class="valor">{{ cont.esperados }}</span></span></div>
+    <div class="card stat"><span class="bolinha vermelho">{{ icone('alerta') }}</span><span><span class="rotulo">Sinais de alerta</span><span class="valor {{ 'vermelho' if cont.alertas }}">{{ cont.alertas }}</span></span></div>
+  </div>
+
+  <section class="card">
+    <div class="card-titulo">{{ icone('mais') }}<h2>Registrar sintoma</h2></div>
+    <form method="post" class="vertical">
+      <div class="campos-2">
+        <label>Data <input type="date" name="data" value="{{ hoje.isoformat() }}" required></label>
+        <label>Sintoma
+          <select name="nome" required>
+            <optgroup label="Comuns no tratamento">{% for s in comuns %}<option>{{ s }}</option>{% endfor %}</optgroup>
+            <optgroup label="Pedem contato com a clínica">{% for s in clinica %}<option>{{ s }}</option>{% endfor %}</optgroup>
+            <optgroup label="Emergência">{% for s in emergencia %}<option>{{ s }}</option>{% endfor %}</optgroup>
+            <option>Outro</option>
+          </select>
+        </label>
+      </div>
+      <label>Se escolheu "Outro", qual? <input name="outro" placeholder="Descreva o sintoma"></label>
+      <fieldset style="border:0; padding:0; margin:0">
+        <legend style="font-size:.86rem; font-weight:500; margin-bottom:6px">Intensidade (0 a 10)</legend>
+        <div class="escala">
+          {% for n in range(11) %}<input type="radio" name="intensidade" id="i{{ n }}" value="{{ n }}" {{ 'checked' if n == 3 }}><label for="i{{ n }}">{{ n }}</label>{% endfor %}
+        </div>
+      </fieldset>
+      <label>Observação (opcional) <textarea name="observacao" rows="2" placeholder="Ex.: mais forte à noite"></textarea></label>
+      <button class="btn">Salvar registro</button>
+    </form>
+  </section>
+
+  <section class="card rolavel">
+    <div class="card-titulo">{{ icone('relogio') }}<h2>Histórico</h2></div>
+    <table>
+      <thead><tr><th>Data</th><th>Sintoma</th><th>Intensidade</th><th>Observação</th></tr></thead>
+      <tbody>
+      {% for s in sintomas %}
+      <tr>
+        <td style="white-space:nowrap">{{ s.data|br }}</td>
+        <td>{{ s.nome }}<br>
+          {% if s.nivel == 2 %}<span class="selo vermelho">Emergência</span>
+          {% elif s.nivel == 1 %}<span class="selo vermelho">Ligar para a clínica</span>
+          {% elif s.nome in esperados %}<span class="selo verde">Comum nesta fase</span>{% endif %}</td>
+        <td><span class="selo {{ 'vermelho' if s.intensidade >= 8 else ('ambar' if s.intensidade >= 5 else 'verde') }}">{{ s.intensidade }}/10</span></td>
+        <td class="mini">{{ s.observacao or '—' }}</td>
+      </tr>
+      {% else %}<tr><td colspan="4" class="vazio">Nenhum sintoma registrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div class="coluna">
+  <section class="card suave">
+    <div class="card-titulo"><span class="bolinha">{{ icone('folha') }}</span><h3>Comuns {{ 'na fase de ' ~ atual.nome|lower if atual else 'nesta fase' }}</h3></div>
+    {% if esperados %}<ul style="margin:0; padding-left:18px">{% for s in esperados %}<li>{{ s }}</li>{% endfor %}</ul>
+    {% else %}<p class="sub" style="margin:0">Nesta fase não há efeitos típicos listados.</p>{% endif %}
+    <p class="mini" style="margin:10px 0 0">Comum não quer dizer que deva ser ignorado: se piorar, avise a clínica.</p>
+  </section>
+  <section class="card ambar">
+    <div class="card-titulo"><span class="bolinha ambar">{{ icone('telefone') }}</span><h3>Ligue para sua clínica agora se tiver</h3></div>
+    <ul style="margin:0; padding-left:18px; font-size:.9rem">{% for s in clinica %}<li>{{ s }}</li>{% endfor %}</ul>
+    {% if telefone %}<a class="btn peq" style="margin-top:12px" href="{{ telefone|tel }}">{{ icone('telefone') }} {{ telefone }}</a>{% endif %}
+  </section>
+  <section class="card vermelho">
+    <div class="card-titulo"><span class="bolinha vermelho">{{ icone('alerta') }}</span><h3>Emergência: ligue 192</h3></div>
+    <ul style="margin:0; padding-left:18px; font-size:.9rem">{% for s in emergencia %}<li>{{ s }}</li>{% endfor %}</ul>
+    <p class="mini" style="margin:10px 0 0">Não dirija sozinha até o pronto-socorro.</p>
+    {{ fontes(fontes_alerta) }}
+  </section>
+</div>
+</div>
+{% endblock %}
