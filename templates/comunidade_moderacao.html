@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block aba %}Moderação da comunidade{% endblock %}
+{% block titulo %}Moderação da comunidade{% endblock %}
+{% block subtitulo %}Ferramentas restritas para lidar com denúncias e conteúdo legado.{% endblock %}
+{% block corpo %}
+<main class="conteudo conteudo-cheio apoio-page comunidade-page">
+  <a class="btn contorno peq voltar-apoio" href="{{ url_for('comunidade') }}">← Voltar à comunidade</a>
+  <section class="card comunidade-card">
+    <h2>Fila de moderação</h2>
+    <p>Esta área é restrita a IDs autorizados no servidor. As publicações e os comentários ficam visíveis imediatamente; use as denúncias para avaliar conteúdo que possa violar as regras. Esta fila não é um canal de emergência nem garante resposta imediata.</p>
+  </section>
+
+  <section class="card">
+    <h2>Publicações antigas aguardando revisão ({{ publicacoes|length }})</h2>
+    {% for item in publicacoes %}
+    <article class="item-moderacao">
+      <p class="mini">{{ item.pseudonimo }} · {{ categorias[item.categoria] }} · {{ item.criada_em[:16].replace("T", " ") }}</p>
+      <p class="texto-comunidade">{{ item.texto }}</p>
+      <form method="post" action="{{ url_for('comunidade_moderar_conteudo', tipo_alvo='publicacao', id=item.id) }}" class="acoes-moderacao">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn contorno peq" name="acao" value="aprovar" type="submit">Aprovar publicação</button>
+        <button class="btn contorno peq" name="acao" value="remover" type="submit">Rejeitar e apagar texto</button>
+      </form>
+    </article>
+    {% else %}<p class="vazio">Nenhuma publicação antiga aguardando revisão.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Comentários antigos aguardando revisão ({{ comentarios|length }})</h2>
+    {% for item in comentarios %}
+    <article class="item-moderacao">
+      <p class="mini">{{ item.pseudonimo }} · {{ item.criado_em[:16].replace("T", " ") }}</p>
+      <p class="texto-comunidade">{{ item.texto }}</p>
+      <form method="post" action="{{ url_for('comunidade_moderar_conteudo', tipo_alvo='comentario', id=item.id) }}" class="acoes-moderacao">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn contorno peq" name="acao" value="aprovar" type="submit">Aprovar comentário</button>
+        <button class="btn contorno peq" name="acao" value="remover" type="submit">Rejeitar e apagar texto</button>
+      </form>
+    </article>
+    {% else %}<p class="vazio">Nenhum comentário antigo aguardando revisão.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Denúncias privadas abertas ({{ denuncias|length }})</h2>
+    <p class="nota">Os motivos e o conteúdo denunciado são visíveis somente para moderadoras autorizadas.</p>
+    {% for item in denuncias %}
+    <article class="item-moderacao">
+      <p class="mini">{{ item.pseudonimo }} · {{ "Publicação" if item.tipo_alvo == "publicacao" else "Comentário" }} · {{ item.criada_em[:16].replace("T", " ") }}</p>
+      <p><strong>Motivo:</strong> {{ motivos_denuncia[item.motivo] }}</p>
+      <p class="texto-comunidade">{{ item.texto }}</p>
+      <form method="post" action="{{ url_for('comunidade_revisar_denuncia', id=item.id) }}" class="acoes-moderacao">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn contorno peq" name="acao" value="manter" type="submit">Manter conteúdo e encerrar denúncia</button>
+        <button class="btn contorno peq" name="acao" value="remover" type="submit">Remover conteúdo e encerrar denúncia</button>
+      </form>
+    </article>
+    {% else %}<p class="vazio">Nenhuma denúncia aberta.</p>{% endfor %}
+  </section>
+</main>
+{% endblock %}

@@ -1,81 +1,652 @@
 {% extends "base.html" %}
-{% from "_icones.html" import icone, ramo, fontes with context %}
+{% from "_icones.html" import icone, fontes with context %}
 {% block aba %}Apoio emocional{% endblock %}
 {% block titulo %}Apoio emocional{% endblock %}
-{% block subtitulo %}O tratamento mexe com o corpo e com as emoções. Aqui você registra como está e encontra apoio.{% endblock %}
+{% block subtitulo %}Um espaço para escolher o apoio que faz sentido para você, no seu tempo.{% endblock %}
 {% block corpo %}
-<div class="conteudo">
-<div class="coluna">
-  {% if alerta_humor %}
-  <div class="alerta ambar" role="status">{{ icone('coracao') }}
-    <div><h3>Você tem passado por dias difíceis</h3>
-      <p>Conversar com um profissional pode ajudar muito. Fale com a sua clínica ou procure apoio psicológico. Se estiver em sofrimento intenso, o CVV atende 24 horas pelo 188.</p>
-      <div class="acoes"><a class="btn peq" href="tel:188">{{ icone('telefone') }} Ligar 188 (CVV)</a></div></div>
-  </div>
-  {% endif %}
-
-  <section class="card suave">
-    <div class="card-titulo"><span class="bolinha" style="background:#fff">{{ icone('folha') }}</span><h2>O que é comum sentir {{ 'na fase de ' ~ atual.nome|lower if atual else 'agora' }}</h2></div>
-    <p style="margin:0">{{ texto or 'Cada fase do tratamento traz emoções diferentes, e todas elas são válidas.' }}</p>
-    {{ fontes(fontes_texto) }}
-  </section>
-
-  <section class="card">
-    <div class="card-titulo">{{ icone('coracao') }}<h2>Como você está hoje?</h2></div>
-    <form method="post" class="vertical">
-      <fieldset style="border:0; padding:0; margin:0">
-        <legend class="sr">Como você está hoje</legend>
-        <div class="escala humor">
-          {% for n in [1, 2, 3, 4, 5] %}<input type="radio" name="nivel" id="h{{ n }}" value="{{ n }}" {{ 'checked' if n == 3 }}><label for="h{{ n }}">{{ humores[n] }}</label>{% endfor %}
-        </div>
-      </fieldset>
-      <label>Quer anotar algo? (opcional) <textarea name="nota" rows="2" placeholder="Ex.: fiquei mais sensível hoje"></textarea></label>
-      <input type="hidden" name="data" value="{{ hoje.isoformat() }}">
-      <button class="btn">Registrar</button>
-    </form>
-    {% if meds_hoje %}
-    <p class="mini" style="margin:14px 0 0">Hoje você está usando: {% for m in meds_hoje %}{{ m.nome }}{{ ', ' if not loop.last }}{% endfor %}. As medicações hormonais podem causar oscilações de humor; se você estiver mais sensível, isso pode ter relação com o tratamento.</p>
+<main class="conteudo conteudo-cheio apoio-page">
+  <section id="inicio-apoio" {% if erro or diario_ativo %}hidden{% endif %}>
+  <div class="coluna">
+    {% if alerta_humor %}
+    <section class="card ambar" role="status">
+      <div class="card-titulo">{{ icone('coracao') }}<h2>Os dias difíceis têm se repetido</h2></div>
+      <p>Isso não é uma avaliação ou diagnóstico. Se quiser, você pode conversar com alguém de confiança, sua equipe de saúde ou buscar apoio psicológico.</p>
+      <button class="btn peq" type="button" data-abrir-recurso="ajuda">Ver opções de apoio</button>
+    </section>
     {% endif %}
+
+    <section class="card acolhimento-hero">
+      <p class="selo verde">Modo acolhimento</p>
+      <h2>Do que você precisa neste momento?</h2>
+      <p>Você não precisa explicar como está para usar os recursos. Escolha um caminho ou apenas leia. Não há tarefas obrigatórias.</p>
+      {% if atual %}
+      <p class="mini etapa-apoio">Seu momento atual: {{ atual.nome }}. Essa informação é usada para contextualizar o conteúdo e não precisa ser compartilhada.</p>
+      {% endif %}
+      <nav class="atalhos-apoio" aria-label="Escolha uma forma de apoio">
+        <button class="btn contorno" type="button" data-abrir-recurso="respiracao" aria-expanded="false">🌿 Quero desacelerar</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="diario" aria-expanded="false">📝 Quero organizar meus pensamentos</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="acolhimento" aria-expanded="false">💗 Quero ler algo que me acolha</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="biblioteca" aria-expanded="false">📚 Quero entender melhor esta etapa</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="autocuidado" aria-expanded="false">🌷 Quero escolher um cuidado para mim</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="consulta" aria-expanded="false">🩺 Quero preparar uma conversa com a equipe</button>
+        <button class="btn contorno" type="button" data-abrir-recurso="ajuda" aria-expanded="false">🧭 Preciso de apoio agora</button>
+        <button class="btn contorno" type="button" data-abrir-comunidade>🤍 Quero me conectar com outras mulheres</button>
+      </nav>
+    </section>
+  </div>
+  <section class="card comunidade-resumo" aria-labelledby="titulo-resumo-comunidade">
+    <div class="card-titulo">{{ icone('pessoa') }}<h2 id="titulo-resumo-comunidade">Comunidade de apoio</h2></div>
+    <p>Relatos e conversas em tempo real com outras participantes. As publicações aparecem imediatamente; pseudônimo não é anonimato absoluto.</p>
+    <button class="btn contorno peq" type="button" data-abrir-comunidade>Conhecer a comunidade</button>
+  </section>
   </section>
 
-  <section class="card">
-    <div class="card-titulo">{{ icone('relogio') }}<h2>Seus últimos registros</h2></div>
-    <div class="lista-linhas">
-      {% for r in registros %}
-      <div>
-        <span class="selo {{ 'vermelho' if r.nivel <= 2 else ('ambar' if r.nivel == 3 else 'verde') }}" style="min-width:110px; justify-content:center">{{ humores[r.nivel] }}</span>
-        <span class="cresce">{{ r.nota or '—' }}</span>
-        <span class="mini">{{ r.data|br }}</span>
+  <section class="painel-recurso" id="painel-recurso" aria-live="polite" {% if not erro and not diario_ativo %}hidden{% endif %}>
+  <header class="cabecalho-recurso">
+    <button class="btn contorno peq voltar-apoio" type="button" data-voltar-inicio>← Voltar</button>
+    <h2 id="titulo-recurso" tabindex="-1">Seu espaço de apoio</h2>
+  </header>
+  <div class="coluna">
+    <section class="card suave apoio-recurso" id="acolhimento" data-recurso="acolhimento" hidden>
+      <div class="card-titulo"><span class="bolinha" style="background:#fff">{{ icone('folha') }}</span><h2>Uma mensagem para este momento</h2></div>
+      <p class="mensagem-acolhimento">{{ texto or 'Cada etapa pode trazer sentimentos diferentes. Você não precisa passar por isso de um jeito específico.' }}</p>
+      <p>Talvez esperança, medo, ansiedade ou cansaço apareçam juntos. Você não precisa se obrigar a pensar positivo. Se ajudar, escolha só uma coisa pequena para atravessar o dia — ou não escolha nada agora.</p>
+      {{ fontes(fontes_texto) }}
+    </section>
+
+    <section class="card respiracao apoio-recurso" id="respiracao" data-recurso="respiracao" hidden>
+      <div class="card-titulo">{{ icone('folha') }}<h2>Respiração guiada</h2></div>
+      <p>Um convite para fazer uma pausa. Respire de um jeito confortável para você; não precisa prender o ar nem seguir o ritmo se não for bom.</p>
+      <div class="respiracao-exercicio">
+        <div class="circulo-respiracao" id="circulo-respiracao" aria-hidden="true">
+          <span id="fase-respiracao" aria-live="polite">No seu ritmo</span>
+        </div>
+        <div class="controles-respiracao">
+          <label for="duracao-respiracao">Duração
+            <select id="duracao-respiracao">
+              <option value="1">1 minuto</option>
+              <option value="2">2 minutos</option>
+              <option value="5">5 minutos</option>
+            </select>
+          </label>
+          <p class="temporizador" id="temporizador-respiracao" aria-live="off" aria-label="Tempo restante">01:00</p>
+          <div class="acoes-respiracao">
+            <button class="btn" type="button" id="iniciar-respiracao">Começar</button>
+            <button class="btn contorno" type="button" id="pausar-respiracao" disabled>Pausar</button>
+            <button class="btn contorno" type="button" id="encerrar-respiracao" disabled>Encerrar</button>
+          </div>
+        </div>
       </div>
-      {% else %}<p class="vazio">Nenhum registro ainda.</p>{% endfor %}
-    </div>
+      <p class="nota">Se sentir desconforto, encerre e volte à sua respiração natural. Você pode simplesmente fechar os olhos ou descansar.</p>
+    </section>
+
+    <section class="card apoio-recurso" id="diario" data-recurso="diario" hidden>
+      <div class="card-titulo">{{ icone('relogio') }}<h2>Diário privado</h2></div>
+      <p>Escreva apenas para você. O texto não é publicado nem compartilhado; fica associado à sua conta e só aparece para você nesta área.</p>
+      {% if erro %}<p class="erro-form" role="alert">{{ erro }}</p>{% endif %}
+      {% if request.args.get('registro') == 'salvo' %}<p class="mensagem-salvo" role="status">Registro guardado no dia selecionado.</p>{% endif %}
+      <form method="post" class="vertical formulario-diario">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="tipo" value="diario">
+        <input type="hidden" name="data" id="data-diario" value="{{ diario_data }}">
+        <p class="data-escolhida">Escrevendo para <strong id="data-diario-legenda"></strong></p>
+        <label for="nota-diario">O que você gostaria de registrar?
+          <textarea id="nota-diario" name="nota" rows="5" maxlength="3000" required placeholder="Pode escrever livremente. Não precisa encontrar as palavras perfeitas."></textarea>
+        </label>
+        <p class="nota">Até 3.000 caracteres. O diário não é enviado automaticamente para ninguém.</p>
+        <button class="btn" type="submit">Guardar no meu diário</button>
+      </form>
+
+      <details class="registro-humor-opcional">
+        <summary>Se quiser, registrar também como está se sentindo</summary>
+        <p class="nota">É opcional e separado da respiração guiada. Sua escolha não será usada para fazer diagnóstico.</p>
+        <form method="post" class="vertical">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="tipo" value="humor">
+          <fieldset class="campo-humor">
+            <legend>Como foi seu dia?</legend>
+            <div class="escala humor">
+            {% for n in [1, 2, 3, 4, 5] %}
+            <input type="radio" name="nivel" id="humor{{ n }}" value="{{ n }}" required>
+            <label for="humor{{ n }}">{{ humores[n] }}</label>
+            {% endfor %}
+            </div>
+          </fieldset>
+          <label for="nota-humor">Quer acrescentar uma anotação? (opcional)
+            <textarea id="nota-humor" name="nota" rows="2" maxlength="500"></textarea>
+          </label>
+          <button class="btn contorno" type="submit">Registrar como estou</button>
+        </form>
+      </details>
+
+      <section class="calendario-diario" aria-labelledby="titulo-calendario">
+        <div class="card-titulo"><h3 id="titulo-calendario">Seu diário por dia</h3></div>
+        <div class="navegacao-mes">
+          <button class="btn contorno peq" type="button" id="mes-anterior" aria-label="Mês anterior">‹</button>
+          <h3 id="mes-atual" aria-live="polite"></h3>
+          <button class="btn contorno peq" type="button" id="mes-proximo" aria-label="Próximo mês">›</button>
+        </div>
+        <div class="calendario-grade dias-semana" aria-hidden="true">
+          <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+        </div>
+        <div class="calendario-grade" id="dias-calendario" role="group" aria-label="Calendário do diário"></div>
+        <p class="legenda-calendario"><span class="marcador-dia"></span> Dia com registro</p>
+        <p class="nota" id="estado-calendario" role="status"></p>
+      </section>
+
+      <section class="registros-do-dia" aria-live="polite">
+        <h3 id="titulo-registros-dia"></h3>
+        <div id="lista-registros-dia"></div>
+      </section>
+
+      <section class="busca-diario">
+        <h3>Buscar nos meus registros</h3>
+        <form id="form-busca-diario" role="search">
+          <label for="consulta-diario">Palavra ou frase
+            <input type="search" id="consulta-diario" maxlength="80" placeholder="Ex.: esperança, consulta, espera">
+          </label>
+          <button class="btn contorno peq" type="submit">Buscar</button>
+          <button class="link-btn" type="button" id="limpar-busca">Limpar busca</button>
+        </form>
+        <p class="nota" id="estado-busca" role="status"></p>
+        <div id="resultados-busca"></div>
+      </section>
+    </section>
+
+    <section class="card apoio-recurso" id="biblioteca" data-recurso="biblioteca" hidden>
+      <div class="card-titulo">{{ icone('folha') }}<h2>Biblioteca de apoio</h2></div>
+      <p>Conteúdos breves para acompanhar o que você está vivendo — sem substituir informações clínicas da sua equipe.</p>
+      {% if atual %}
+      <article class="leitura-apoio">
+        <h3>{{ atual.nome }}</h3>
+        <p>{{ texto or 'Cada pessoa vive essa etapa de um jeito. Se alguma dúvida for sobre o tratamento, anote para conversar com a equipe que acompanha você.' }}</p>
+        {{ fontes(fontes_texto) }}
+      </article>
+      {% endif %}
+      <article class="leitura-apoio">
+        <h3>Pedir apoio também é uma escolha</h3>
+        <p>Você pode dizer a alguém de confiança o que ajudaria hoje: companhia, escuta, ajuda prática ou um pouco de espaço.</p>
+      </article>
+      <article class="leitura-apoio">
+        <h3>Para quem está ao seu lado</h3>
+        <p>{{ parceria }}</p>
+        {{ fontes(fontes_parceria) }}
+      </article>
+      <article class="leitura-apoio">
+        <h3>Uma frase para pedir o que precisa</h3>
+        <label for="modelo-conversa">Escolha um contexto
+          <select id="modelo-conversa">
+            <option value="escuta">Quero ser escutada, sem soluções agora</option>
+            <option value="privacidade">Quero manter o tratamento em privado</option>
+            <option value="companhia">Quero companhia em um dia difícil</option>
+          </select>
+        </label>
+        <button class="btn contorno peq" type="button" id="gerar-conversa">Ver sugestão</button>
+        <textarea id="texto-conversa" rows="3" readonly aria-label="Sugestão de mensagem"></textarea>
+        <p class="nota">A mensagem fica nesta página. Edite e decida por conta própria se deseja compartilhá-la.</p>
+      </article>
+    </section>
+
+    <section class="card apoio-recurso" id="autocuidado" data-recurso="autocuidado" hidden>
+      <div class="card-titulo">{{ icone('folha') }}<h2>Meu cuidado, do meu jeito</h2></div>
+      <p>Se quiser, escolha ideias que gostaria de experimentar. Não é uma lista de tarefas: você pode mudar de ideia, não fazer nenhuma ou descansar.</p>
+      <fieldset class="lista-perguntas" id="opcoes-autocuidado">
+        <legend>O que pode fazer sentido para você?</legend>
+        <label><input type="checkbox" value="respirar"> Fazer uma pausa com a respiração</label>
+        <label><input type="checkbox" value="conversar"> Conversar com alguém de confiança</label>
+        <label><input type="checkbox" value="atividade"> Fazer algo de que gosto</label>
+        <label><input type="checkbox" value="diario"> Escrever uma preocupação no diário</label>
+        <label><input type="checkbox" value="consulta"> Separar perguntas para a consulta</label>
+        <label><input type="checkbox" value="descansar"> Descansar sem me cobrar</label>
+      </fieldset>
+      <button class="btn contorno peq" type="button" id="ver-cuidado" disabled>Ver uma ideia para mim</button>
+      <div class="nota resposta-autocuidado" id="resposta-autocuidado" role="status" aria-live="polite"></div>
+      <p class="nota">Suas escolhas não são enviadas ao Nida e não geram lembretes ou cobranças.</p>
+    </section>
+
+    <section class="card apoio-recurso" id="preparar-consulta" data-recurso="consulta" hidden>
+      <div class="card-titulo">{{ icone('estetoscopio') }}<h2>Preparar uma conversa com a equipe</h2></div>
+      <p>Marque o que gostaria de lembrar na próxima consulta. A lista é montada neste dispositivo e não é salva pelo Nida.</p>
+      <fieldset class="lista-perguntas" id="perguntas-consulta">
+        <legend>O que você gostaria de conversar?</legend>
+        <label><input type="checkbox" value="Tenho dúvidas sobre a próxima etapa do tratamento."> Dúvidas sobre a próxima etapa</label>
+        <label><input type="checkbox" value="Quero conversar sobre como estou me sentindo durante a espera."> Como estou me sentindo durante a espera</label>
+        <label><input type="checkbox" value="Tenho dúvidas sobre efeitos ou desconfortos e gostaria de orientação da equipe."> Efeitos ou desconfortos</label>
+        <label><input type="checkbox" value="Gostaria de saber como buscar apoio psicológico."> Apoio psicológico</label>
+      </fieldset>
+      <label for="pergunta-livre">Outra pergunta (opcional)
+        <textarea id="pergunta-livre" rows="2" maxlength="500" placeholder="Escreva com suas palavras"></textarea>
+      </label>
+      <button class="btn contorno peq" type="button" id="montar-perguntas">Montar minha lista</button>
+      <label for="lista-consulta">Sua lista
+        <textarea id="lista-consulta" rows="5" readonly placeholder="Sua lista aparecerá aqui. Você pode editá-la antes da consulta."></textarea>
+      </label>
+      <p class="nota">Não inclui aconselhamento clínico. Leve suas dúvidas à equipe que acompanha seu tratamento.</p>
+    </section>
+
+    <section class="card ajuda-card apoio-recurso" id="ajuda" data-recurso="ajuda" hidden>
+      <div class="card-titulo">{{ icone('coracao') }}<h2>Preciso de apoio agora</h2></div>
+      <h3>Quero relaxar ou organizar meus pensamentos</h3>
+      <p>Você pode experimentar a respiração ou escrever no diário. Se não ajudar, pare — não há obrigação de continuar.</p>
+      <div class="atalhos-ajuda">
+        <button class="btn contorno peq" type="button" data-abrir-recurso="respiracao">Abrir respiração</button>
+        <button class="btn contorno peq" type="button" data-abrir-recurso="diario">Abrir diário privado</button>
+      </div>
+      <h3>Quero conversar com alguém</h3>
+      <p>Procure uma pessoa de confiança, sua clínica ou um profissional de saúde mental. UBS e clínicas-escola de psicologia podem ajudar a encontrar atendimento.</p>
+      <h3>Estou em risco imediato ou posso me machucar</h3>
+      <p>Se puder, fique junto de alguém de confiança e vá a uma UPA ou pronto-socorro. Em uma emergência médica, ligue para o SAMU pelo <a href="tel:192">192</a>. Se houver ameaça à sua segurança, ligue <a href="tel:190">190</a>.</p>
+      <p>O CVV oferece escuta emocional gratuita pelo <a href="tel:188">188</a>, 24 horas. O CVV não substitui atendimento de emergência.</p>
+      <p class="nota">O Nida não monitora esta página nem consegue identificar todas as situações de risco. Em perigo imediato, procure ajuda humana urgente.</p>
+    </section>
+
+  </div>
   </section>
 
-  <section class="placeholder">
-    <div class="card-titulo">{{ icone('pessoa') }}<strong>Comunidade</strong></div>
-    <p style="margin:0">Em desenvolvimento: espaço anônimo de apoio entre mulheres, organizado por fase do tratamento, com regras de convivência e moderação.</p>
-  </section>
-</div>
+</main>
+<script>
+(() => {
+  const home = document.getElementById("inicio-apoio");
+  const resourcePanel = document.getElementById("painel-recurso");
+  const resources = [...document.querySelectorAll(".apoio-recurso")];
+  const resourceButtons = [...document.querySelectorAll("[data-abrir-recurso]")];
+  const communityButtons = [...document.querySelectorAll("[data-abrir-comunidade]")];
+  let lastTrigger = null;
+  const todayDate = {{ hoje.isoformat()|tojson }};
+  const communityUrl = {{ url_for('comunidade')|tojson }};
+  const diaryRecordsUrl = {{ url_for('buscar_registros_diario')|tojson }};
+  const deleteUrlPattern = {{ url_for('excluir_registro_apoio', id=0)|tojson }};
+  const csrfToken = {{ csrf_token()|tojson }};
+  const moodLabels = {{ humores|tojson }};
+  const diaryDateInput = document.getElementById("data-diario");
+  const diaryDateLabel = document.getElementById("data-diario-legenda");
+  const calendarGrid = document.getElementById("dias-calendario");
+  const calendarMonthLabel = document.getElementById("mes-atual");
+  const calendarStatus = document.getElementById("estado-calendario");
+  const dayRecordsTitle = document.getElementById("titulo-registros-dia");
+  const dayRecordsList = document.getElementById("lista-registros-dia");
+  const searchForm = document.getElementById("form-busca-diario");
+  const searchInput = document.getElementById("consulta-diario");
+  const searchStatus = document.getElementById("estado-busca");
+  const searchResults = document.getElementById("resultados-busca");
+  let diaryMonth = diaryDateInput.value.slice(0, 7);
+  let diaryRecords = [];
+  let selectedDiaryDate = diaryDateInput.value;
 
-<div class="coluna">
-  <section class="placeholder">
-    <div class="card-titulo">{{ icone('folha') }}<strong>Respiração guiada</strong></div>
-    <p style="margin:0">Em desenvolvimento: exercício de 1 a 2 minutos para momentos de ansiedade.</p>
-  </section>
-  <section class="card">
-    <div class="card-titulo">{{ icone('estetoscopio') }}<h3>Onde buscar ajuda</h3></div>
-    <ul style="margin:0; padding-left:18px; font-size:.92rem">
-      <li>Sua clínica: muitas têm psicólogo na equipe.</li>
-      <li>UBS e serviços de saúde mental do SUS.</li>
-      <li>Clínicas-escola de psicologia das universidades.</li>
-      <li>Em sofrimento intenso: CVV, 24 horas, pelo <strong>188</strong>.</li>
-    </ul>
-  </section>
-  <section class="card suave">
-    <div class="card-titulo">{{ icone('pessoa') }}<h3>Para quem está ao seu lado</h3></div>
-    <p class="sub" style="margin:0">{{ parceria }}</p>
-    {{ fontes(fontes_parceria) }}
-  </section>
-</div>
-</div>
+  const formatDiaryDate = (value, options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }) =>
+    new Intl.DateTimeFormat("pt-BR", options).format(new Date(`${value}T12:00:00`));
+  const createMessage = (className, text) => {
+    const message = document.createElement("p");
+    message.className = className;
+    message.textContent = text;
+    return message;
+  };
+  const updateDiaryDate = (value) => {
+    selectedDiaryDate = value;
+    diaryDateInput.value = value;
+    diaryDateLabel.textContent = formatDiaryDate(value);
+    dayRecordsTitle.textContent = `Registros de ${formatDiaryDate(value)}`;
+    if (diaryMonth === value.slice(0, 7)) renderCalendar();
+    dayRecordsList.replaceChildren();
+    const records = diaryRecords.filter((record) => record.data === value);
+    if (!records.length) {
+      dayRecordsList.append(createMessage("vazio", "Nenhum registro neste dia. Se quiser, você pode escrever um agora."));
+      return;
+    }
+    for (const record of records) {
+      const article = document.createElement("article");
+      article.className = "registro-diario";
+      const header = document.createElement("div");
+      header.className = "registro-cabecalho";
+      const badge = document.createElement("span");
+      badge.className = "selo " + (record.nivel === null ? "azul" : (record.nivel <= 2 ? "vermelho" : (record.nivel === 3 ? "ambar" : "verde")));
+      badge.textContent = record.nivel === null ? "Diário privado" : (moodLabels[String(record.nivel)] || "Como me senti");
+      const time = document.createElement("time");
+      time.className = "mini";
+      time.dateTime = record.data;
+      time.textContent = formatDiaryDate(record.data, { day: "numeric", month: "short", year: "numeric" });
+      header.append(badge, time);
+      article.append(header);
+      if (record.nota) article.append(createMessage("texto-registro", record.nota));
+      const removeForm = document.createElement("form");
+      removeForm.method = "post";
+      removeForm.action = deleteUrlPattern.replace("/0/", `/${record.id}/`);
+      removeForm.onsubmit = () => window.confirm("Excluir este registro do seu histórico? Esta ação não pode ser desfeita.");
+      const tokenInput = document.createElement("input");
+      tokenInput.type = "hidden";
+      tokenInput.name = "csrf_token";
+      tokenInput.value = csrfToken;
+      const removeButton = document.createElement("button");
+      removeButton.className = "link-btn";
+      removeButton.type = "submit";
+      removeButton.textContent = "Excluir este registro";
+      removeForm.append(tokenInput, removeButton);
+      article.append(removeForm);
+      dayRecordsList.append(article);
+    }
+  };
+  const renderCalendar = () => {
+    const [year, month] = diaryMonth.split("-").map(Number);
+    const firstWeekday = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    calendarGrid.replaceChildren();
+    for (let blank = 0; blank < firstWeekday; blank += 1) {
+      const spacer = document.createElement("span");
+      spacer.setAttribute("aria-hidden", "true");
+      calendarGrid.append(spacer);
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const value = `${diaryMonth}-${String(day).padStart(2, "0")}`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dia-calendario";
+      button.setAttribute("role", "gridcell");
+      button.textContent = String(day);
+      const hasEntry = diaryRecords.some((record) => record.data === value);
+      if (hasEntry) button.classList.add("tem-registro");
+      if (value === selectedDiaryDate) button.classList.add("selecionado");
+      button.setAttribute("aria-label", `${formatDiaryDate(value)}${hasEntry ? ", tem registro" : ""}`);
+      button.setAttribute("aria-pressed", String(value === selectedDiaryDate));
+      button.disabled = value > todayDate;
+      button.addEventListener("click", () => updateDiaryDate(value));
+      calendarGrid.append(button);
+    }
+    calendarMonthLabel.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
+      .format(new Date(year, month - 1, 1));
+    const currentMonth = todayDate.slice(0, 7);
+    document.getElementById("mes-proximo").disabled = diaryMonth >= currentMonth;
+  };
+  async function loadDiaryMonth(month) {
+    calendarStatus.textContent = "Carregando seus registros...";
+    try {
+      const response = await fetch(`${diaryRecordsUrl}?mes=${encodeURIComponent(month)}`, {
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("Não foi possível carregar os registros deste mês.");
+      const result = await response.json();
+      diaryMonth = result.mes;
+      diaryRecords = result.registros;
+      renderCalendar();
+      if (selectedDiaryDate.startsWith(diaryMonth)) updateDiaryDate(selectedDiaryDate);
+      calendarStatus.textContent = diaryRecords.length
+        ? `${diaryRecords.length} registro(s) neste mês.`
+        : "Nenhum registro neste mês. Você pode escolher um dia passado para escrever.";
+    } catch (error) {
+      calendarStatus.textContent = error.message || "Não foi possível carregar o calendário. Tente novamente.";
+    }
+  }
+  async function selectSearchResult(value) {
+    selectedDiaryDate = value;
+    diaryDateInput.value = value;
+    diaryDateLabel.textContent = formatDiaryDate(value);
+    searchResults.replaceChildren();
+    searchStatus.textContent = "";
+    searchInput.value = "";
+    await loadDiaryMonth(value.slice(0, 7));
+    updateDiaryDate(value);
+  }
+  const runDiarySearch = async (query) => {
+    const term = query.trim();
+    searchResults.replaceChildren();
+    if (!term) {
+      searchStatus.textContent = "Digite uma palavra ou frase para pesquisar.";
+      return;
+    }
+    searchStatus.textContent = "Buscando em seus registros...";
+    try {
+      const response = await fetch(`${diaryRecordsUrl}?mes=${encodeURIComponent(diaryMonth)}&q=${encodeURIComponent(term)}`, {
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("Não foi possível buscar nos registros.");
+      const result = await response.json();
+      searchStatus.textContent = result.registros.length
+        ? `${result.registros.length}${result.limite === result.registros.length ? " ou mais" : ""} resultado(s).`
+        : "Nenhum registro encontrado.";
+      for (const record of result.registros) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "resultado-busca";
+        const dateLabel = document.createElement("span");
+        dateLabel.className = "mini";
+        dateLabel.textContent = formatDiaryDate(record.data, { day: "numeric", month: "long", year: "numeric" });
+        const preview = document.createElement("span");
+        preview.textContent = record.nota;
+        button.append(dateLabel, preview);
+        button.addEventListener("click", () => selectSearchResult(record.data));
+        searchResults.append(button);
+      }
+    } catch (error) {
+      searchStatus.textContent = error.message || "Não foi possível buscar nos registros. Tente novamente.";
+    }
+  };
+  searchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    runDiarySearch(searchInput.value);
+  });
+  document.getElementById("limpar-busca").addEventListener("click", () => {
+    searchInput.value = "";
+    searchResults.replaceChildren();
+    searchStatus.textContent = "";
+  });
+  document.getElementById("mes-anterior").addEventListener("click", () => {
+    const [year, month] = diaryMonth.split("-").map(Number);
+    const previous = new Date(year, month - 2, 1);
+    const target = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`;
+    selectedDiaryDate = `${target}-01`;
+    loadDiaryMonth(target).then(() => updateDiaryDate(selectedDiaryDate));
+  });
+  document.getElementById("mes-proximo").addEventListener("click", () => {
+    const [year, month] = diaryMonth.split("-").map(Number);
+    const next = new Date(year, month, 1);
+    const target = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+    selectedDiaryDate = `${target}-01`;
+    loadDiaryMonth(target).then(() => updateDiaryDate(selectedDiaryDate));
+  });
+  const resourceTitles = {
+    acolhimento: "Uma mensagem para este momento",
+    biblioteca: "Biblioteca de apoio",
+    respiracao: "Respiração guiada",
+    diario: "Diário privado",
+    autocuidado: "Meu cuidado, do meu jeito",
+    consulta: "Preparar uma conversa com a equipe",
+    ajuda: "Preciso de apoio agora"
+  };
+  const voltarInicio = () => {
+    home.hidden = false;
+    resourcePanel.hidden = true;
+    for (const resource of resources) resource.hidden = true;
+    for (const button of resourceButtons) button.setAttribute("aria-expanded", "false");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const focusTarget = lastTrigger && !lastTrigger.closest("[hidden]")
+      ? lastTrigger
+      : home.querySelector("[data-abrir-recurso]");
+    focusTarget.focus({ preventScroll: true });
+  };
+  const openResource = (resourceName) => {
+    let found = false;
+    for (const resource of resources) {
+      const active = resource.dataset.recurso === resourceName;
+      resource.hidden = !active;
+      found = found || active;
+    }
+    if (!found) return;
+    home.hidden = true;
+    resourcePanel.hidden = false;
+    document.getElementById("titulo-recurso").textContent = resourceTitles[resourceName];
+    for (const button of resourceButtons) {
+      button.setAttribute("aria-expanded", String(button.dataset.abrirRecurso === resourceName));
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    document.getElementById("titulo-recurso").focus({ preventScroll: true });
+    if (resourceName === "diario") {
+      diaryMonth = selectedDiaryDate.slice(0, 7);
+      loadDiaryMonth(diaryMonth);
+    }
+  };
+  for (const button of resourceButtons) {
+    button.addEventListener("click", () => {
+      lastTrigger = button;
+      openResource(button.dataset.abrirRecurso);
+    });
+  }
+  for (const communityButton of communityButtons) {
+    communityButton.addEventListener("click", () => {
+      window.location.assign(communityUrl);
+    });
+  }
+  for (const button of document.querySelectorAll("[data-voltar-inicio]")) {
+    button.addEventListener("click", voltarInicio);
+  }
+  diaryDateLabel.textContent = formatDiaryDate(selectedDiaryDate);
+  if (document.querySelector(".erro-form") || {{ 'true' if diario_ativo else 'false' }}) openResource("diario");
+
+  const duration = document.getElementById("duracao-respiracao");
+  const timer = document.getElementById("temporizador-respiracao");
+  const phase = document.getElementById("fase-respiracao");
+  const circle = document.getElementById("circulo-respiracao");
+  const start = document.getElementById("iniciar-respiracao");
+  const pause = document.getElementById("pausar-respiracao");
+  const end = document.getElementById("encerrar-respiracao");
+  let interval = null;
+  let remaining = 60;
+  let running = false;
+
+  const showTime = () => {
+    const minutes = Math.floor(remaining / 60).toString().padStart(2, "0");
+    const seconds = (remaining % 60).toString().padStart(2, "0");
+    timer.textContent = `${minutes}:${seconds}`;
+  };
+  const showPhase = () => {
+    if (!running) return;
+    const elapsed = Number(duration.value) * 60 - remaining;
+    const inhale = elapsed % 10 < 4;
+    phase.textContent = inhale ? "Inspire, se for confortável" : "Expire, no seu tempo";
+    circle.classList.toggle("inspirando", inhale);
+  };
+  const stop = (completed) => {
+    window.clearInterval(interval);
+    interval = null;
+    running = false;
+    remaining = completed ? 0 : Number(duration.value) * 60;
+    showTime();
+    phase.textContent = completed ? "Você concluiu sua pausa" : "No seu ritmo";
+    circle.classList.remove("inspirando");
+    start.disabled = false;
+    duration.disabled = false;
+    pause.disabled = true;
+    end.disabled = true;
+    pause.textContent = "Pausar";
+  };
+  const tick = () => {
+    remaining -= 1;
+    showTime();
+    if (remaining <= 0) {
+      stop(true);
+      return;
+    }
+    showPhase();
+  };
+
+  duration.addEventListener("change", () => {
+    remaining = Number(duration.value) * 60;
+    showTime();
+  });
+  start.addEventListener("click", () => {
+    if (interval) window.clearInterval(interval);
+    remaining = Number(duration.value) * 60;
+    running = true;
+    start.disabled = true;
+    duration.disabled = true;
+    pause.disabled = false;
+    end.disabled = false;
+    showPhase();
+    interval = window.setInterval(tick, 1000);
+  });
+  pause.addEventListener("click", () => {
+    if (running) {
+      window.clearInterval(interval);
+      interval = null;
+      running = false;
+      pause.textContent = "Continuar";
+      phase.textContent = "Pausa";
+      circle.classList.remove("inspirando");
+    } else {
+      running = true;
+      pause.textContent = "Pausar";
+      showPhase();
+      interval = window.setInterval(tick, 1000);
+    }
+  });
+  end.addEventListener("click", () => stop(false));
+
+  const modelos = {
+    escuta: "Hoje estou me sentindo sobrecarregada. Não preciso de soluções agora; gostaria que você me escutasse e ficasse comigo.",
+    privacidade: "Sei que você se importa, mas prefiro não conversar sobre o tratamento agora. Agradeço por respeitar meu espaço.",
+    companhia: "Hoje está sendo um dia difícil. Você poderia ficar comigo ou conversar um pouco, sem precisar resolver nada?"
+  };
+  const modeloConversa = document.getElementById("modelo-conversa");
+  const textoConversa = document.getElementById("texto-conversa");
+  const prepararMensagem = (choice) => {
+    modeloConversa.value = choice;
+    textoConversa.value = modelos[choice];
+  };
+  document.getElementById("gerar-conversa").addEventListener("click", () => {
+    const choice = modeloConversa.value;
+    prepararMensagem(choice);
+  });
+  document.getElementById("montar-perguntas").addEventListener("click", () => {
+    const selected = [...document.querySelectorAll("#perguntas-consulta input:checked")].map((item) => item.value);
+    const freeText = document.getElementById("pergunta-livre").value.trim();
+    if (freeText) selected.push(freeText);
+    document.getElementById("lista-consulta").value = selected.map((item) => `• ${item}`).join("\n");
+  });
+  const careOptions = document.getElementById("opcoes-autocuidado");
+  const careButton = document.getElementById("ver-cuidado");
+  const careMessage = document.getElementById("resposta-autocuidado");
+  const careSuggestions = {
+    conversar: "Se fizer sentido, você pode preparar uma mensagem para alguém de confiança, escolhendo se prefere escuta, companhia ou privacidade.",
+    atividade: "Escolha algo pequeno e agradável que caiba no seu dia. Não precisa ter relação com o tratamento.",
+    descansar: "Descansar também pode ser suficiente por hoje. Você não precisa compensar nem cumprir uma meta."
+  };
+  careOptions.addEventListener("change", () => {
+    careButton.disabled = !careOptions.querySelector("input:checked");
+    careMessage.replaceChildren();
+  });
+  careButton.addEventListener("click", () => {
+    const selected = [...careOptions.querySelectorAll("input:checked")];
+    if (!selected.length) return;
+    careMessage.replaceChildren();
+    const resourceByCare = { respirar: "respiracao", diario: "diario", consulta: "consulta" };
+    const resourceTitles = {
+      respirar: "Abrir respiração guiada",
+      diario: "Abrir diário privado",
+      consulta: "Preparar conversa com a equipe"
+    };
+    for (const option of selected) {
+      const resource = resourceByCare[option.value];
+      if (resource) {
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = "btn contorno peq";
+        action.textContent = resourceTitles[option.value];
+        action.addEventListener("click", () => openResource(resource));
+        careMessage.append(action);
+      } else {
+        careMessage.append(createMessage("", careSuggestions[option.value]));
+        if (option.value === "conversar") {
+          const action = document.createElement("button");
+          action.type = "button";
+          action.className = "btn contorno peq";
+          action.textContent = "Preparar uma mensagem";
+          action.addEventListener("click", () => {
+            openResource("biblioteca");
+            prepararMensagem("companhia");
+          });
+          careMessage.append(action);
+        }
+      }
+    }
+  });
+})();
+</script>
 {% endblock %}

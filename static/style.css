@@ -311,9 +311,144 @@ input, select, textarea { min-width: 0; }
 .entrada .deco { z-index: 0; opacity: .45; }
 @media (max-width: 900px) { .entrada .deco { display: none; } }
 
-/* Clínicas: mapa (Dev 3) */
-#mapa-clinicas { height: 340px; border-radius: 10px; border: 1px solid var(--borda); z-index: 0; }
-.local-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
-#lista-clinicas strong { cursor: pointer; }
-#lista-clinicas .km { white-space: nowrap; }
-@media (max-width: 700px) { #mapa-clinicas { height: 260px; } }
+/* ----------------------------------------------------------- apoio emocional */
+.apoio-page { grid-template-columns: minmax(0, 1fr); }
+.acolhimento-hero { background: linear-gradient(135deg, #fbf9f5, #e3eee8); }
+.acolhimento-hero h2 { font-size: 1.65rem; margin: 10px 0 6px; }
+.acolhimento-hero > p { max-width: 68ch; }
+.etapa-apoio { margin-top: 16px; }
+.atalhos-apoio { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+.atalhos-apoio .btn { font-size: .88rem; }
+.mensagem-acolhimento { font-family: var(--serif); color: var(--verde-escuro); font-size: 1.2rem; line-height: 1.55; }
+.respiracao-exercicio { display: grid; grid-template-columns: minmax(130px, .7fr) 1fr; gap: 24px; align-items: center; }
+.circulo-respiracao { width: min(100%, 190px); aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  justify-self: center; background: radial-gradient(circle, #f8fbf8 20%, #d7e8dd 72%); color: var(--verde-escuro);
+  text-align: center; padding: 18px; font-family: var(--serif); font-size: 1.1rem; transition: transform 4s ease-in-out, background 4s ease-in-out; }
+.circulo-respiracao.inspirando { transform: scale(1.12); background: radial-gradient(circle, #fff 20%, #c3ddce 76%); }
+.controles-respiracao { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.temporizador { font-variant-numeric: tabular-nums; font-family: var(--serif); font-size: 1.8rem; color: var(--verde-escuro); margin: 0; }
+.acoes-respiracao { display: flex; flex-wrap: wrap; gap: 8px; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+.respiracao .nota { margin-bottom: 0; }
+.formulario-diario { margin-top: 14px; }
+.registro-humor-opcional { border-top: 1px solid var(--borda); margin-top: 22px; padding-top: 16px; }
+.registro-humor-opcional summary { cursor: pointer; color: var(--verde); font-size: .92rem; font-weight: 600; }
+.registro-humor-opcional form { margin-top: 12px; }
+.campo-humor { border: 0; padding: 0; margin: 0; }
+.campo-humor legend { font-size: .86rem; font-weight: 600; margin-bottom: 8px; }
+.lista-perguntas input { width: auto; min-height: auto; margin: 0; accent-color: var(--verde); }
+.historico-diario { border-top: 1px solid var(--borda); margin-top: 22px; padding-top: 18px; }
+.historico-diario summary { cursor: pointer; color: var(--verde); font-size: .92rem; font-weight: 600; }
+.registro-diario { border: 1px solid var(--borda); border-radius: 10px; padding: 12px; margin-top: 10px; background: #fff; }
+.registro-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.registro-diario > p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
+.registro-diario form { display: flex; justify-content: flex-end; }
+.registro-diario .link-btn { min-height: 36px; }
+.leitura-apoio { border-top: 1px solid var(--borda); padding-top: 14px; margin-top: 14px; }
+.leitura-apoio h3 { margin-bottom: 5px; }
+.leitura-apoio p { margin: 5px 0; }
+.leitura-apoio textarea { margin-top: 8px; }
+.leitura-apoio .btn { margin-top: 10px; }
+.lista-perguntas { border: 0; padding: 0; margin: 14px 0; display: flex; flex-direction: column; gap: 10px; }
+.lista-perguntas legend { font-size: .86rem; font-weight: 600; margin-bottom: 8px; }
+.lista-perguntas label { display: flex; flex-direction: row; align-items: flex-start; gap: 9px; font-weight: 400; }
+.ajuda-card h3 { margin-top: 16px; }
+.ajuda-card p { margin: 5px 0; }
+.ajuda-card .nota { margin-top: 12px; }
+.comunidade-card { border-color: #ead9b9; background: #fffcf6; }
+.comunidade-card .selo { margin-bottom: 8px; }
+.erro-form { border: 1px solid #f2c6bf; border-radius: 10px; padding: 12px 14px; color: var(--vermelho);
+  background: var(--vermelho-fundo); margin: 0; }
+@media (max-width: 1100px) {
+  .apoio-page { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .apoio-page { padding: 18px 14px 32px; }
+  .atalhos-apoio { display: grid; grid-template-columns: 1fr; }
+  .atalhos-apoio .btn { justify-content: flex-start; text-align: left; }
+  .respiracao-exercicio { grid-template-columns: 1fr; gap: 18px; }
+  .circulo-respiracao { width: 155px; }
+  .acoes-respiracao .btn { flex: 1 1 30%; padding: 9px 10px; }
+  .escala.humor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .circulo-respiracao { transition: none; }
+}
+.atalhos-apoio .btn[aria-expanded="true"] { background: var(--verde-claro); border-color: var(--verde); color: var(--verde-escuro); }
+.atalhos-apoio button { text-align: left; }
+.comunidade-card { margin-top: 16px; }
+.comunidade-card p { margin: 7px 0; }
+.painel-recurso { display: flex; flex-direction: column; gap: 18px; align-items: stretch; width: 100%; }
+.painel-recurso[hidden], .apoio-recurso[hidden], #inicio-apoio[hidden] { display: none !important; }
+.cabecalho-recurso { display: flex; align-items: center; gap: 16px; padding: 4px 0; }
+.cabecalho-recurso h2 { font-size: 1.5rem; }
+.voltar-apoio { flex: none; }
+.painel-recurso > .coluna { display: contents; }
+.data-escolhida { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--verde-claro); color: var(--verde-escuro); }
+.mensagem-salvo { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--verde-claro); color: var(--verde-escuro); }
+.calendario-diario, .registros-do-dia, .busca-diario { border-top: 1px solid var(--borda); margin-top: 22px; padding-top: 18px; }
+.calendario-diario > .card-titulo { margin-bottom: 10px; }
+.navegacao-mes { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 12px; margin-bottom: 12px; }
+.navegacao-mes h3 { text-align: center; text-transform: capitalize; }
+.calendario-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.dias-semana { color: var(--suave); font-size: .78rem; text-align: center; margin-bottom: 6px; }
+.dias-semana span { padding: 5px 0; }
+.dia-calendario { min-width: 0; min-height: 44px; position: relative; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--texto); font: inherit; cursor: pointer; }
+.dia-calendario:hover:not(:disabled) { background: var(--verde-claro); }
+.dia-calendario.selecionado { border-color: var(--verde); background: var(--verde-escuro); color: #fff; }
+.dia-calendario.tem-registro::after { content: ""; position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  bottom: 4px; left: calc(50% - 2.5px); background: var(--ambar); }
+.dia-calendario.selecionado.tem-registro::after { background: #fff; }
+.dia-calendario:disabled { color: #a4aaa6; cursor: not-allowed; }
+.dia-calendario:focus-visible, .resultado-busca:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+.legenda-calendario { display: flex; align-items: center; gap: 8px; color: var(--suave); font-size: .8rem; }
+.marcador-dia { display: inline-block; width: 7px; height: 7px; background: var(--ambar); border-radius: 50%; }
+.registros-do-dia h3, .busca-diario h3 { margin-bottom: 10px; }
+.registro-diario .texto-registro { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
+.busca-diario form { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+.busca-diario form label { flex: 1 1 210px; }
+.busca-diario .resultado-busca { display: flex; flex-direction: column; align-items: flex-start; width: 100%; gap: 5px;
+  margin-top: 8px; padding: 12px; border: 1px solid var(--borda); border-radius: 10px; background: #fff;
+  color: var(--texto); text-align: left; cursor: pointer; font: inherit; }
+.busca-diario .resultado-busca:hover { border-color: var(--verde); background: var(--verde-claro); }
+.resultado-busca p { margin: 0; }
+.atalhos-ajuda { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.resposta-autocuidado { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .painel-recurso { scroll-behavior: auto; }
+}
+.comunidade-page { display: flex; flex-direction: column; gap: 16px; }
+.comunidade-page > .card { width: 100%; }
+.comunidade-resumo { margin-top: 16px; border-color: #d7e8dd; background: #f8fbf8; }
+.comunidade-resumo .card-titulo { margin-bottom: 6px; }
+.comunidade-page h2 { margin-bottom: 8px; }
+.regras-comunidade { margin: 10px 0; padding-left: 22px; }
+.regras-comunidade li { margin: 6px 0; }
+.mensagem-comunidade { border: 1px solid #b8d5c4; border-radius: 10px; padding: 12px 14px; background: var(--verde-claro); color: var(--verde-escuro); }
+.form-comunidade { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 12px; }
+.form-comunidade label { width: 100%; }
+.form-comunidade textarea { resize: vertical; }
+.cabecalho-comunidade { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.filtro-comunidade { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.filtro-comunidade label { flex: 1 1 220px; }
+.lista-comunidade { display: flex; flex-direction: column; gap: 14px; }
+.publicacao-comunidade, .item-moderacao { border: 1px solid var(--borda); border-radius: 12px; padding: 16px; background: #fff; }
+.publicacao-cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.publicacao-cabecalho .mini { margin: 7px 0 0; }
+.texto-comunidade { white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
+.reacoes-comunidade { display: flex; flex-wrap: wrap; gap: 7px; }
+.reacoes-comunidade button[aria-pressed="true"] { border-color: var(--verde); background: var(--verde-claro); color: var(--verde-escuro); }
+.denuncia-comunidade { margin-top: 10px; }
+.denuncia-comunidade summary { cursor: pointer; color: var(--suave); font-size: .88rem; }
+.comentarios-comunidade { border-top: 1px solid var(--borda); margin-top: 14px; padding-top: 12px; }
+.comentarios-comunidade h3 { margin-bottom: 8px; }
+.comentario-comunidade { border-left: 3px solid var(--verde-claro); padding: 4px 0 4px 12px; margin: 10px 0; }
+.comentario-comunidade > p { margin: 5px 0; }
+.acoes-moderacao { display: flex; flex-wrap: wrap; gap: 8px; }
+.item-moderacao + .item-moderacao { margin-top: 12px; }
+@media (max-width: 600px) {
+  .comunidade-page { padding: 18px 14px 32px; }
+  .publicacao-comunidade, .item-moderacao { padding: 12px; }
+  .reacoes-comunidade .btn { width: 100%; justify-content: flex-start; }
+}
